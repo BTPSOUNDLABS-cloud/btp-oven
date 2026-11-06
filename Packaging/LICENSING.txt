@@ -1,0 +1,183 @@
+================================================================
+  BtP OVEN  -  LICENSING IN PLAIN ENGLISH
+================================================================
+
+This page answers the two questions that actually matter:
+
+  A. Can I sell music I make with BtP Oven?
+  B. Can I sell or give away the plugin itself?
+
+They have different answers. Read the one you need.
+
+This is a practical summary, not legal advice. If money gets serious,
+have a lawyer read THIRD-PARTY.txt.
+
+
+================================================================
+A. SELLING MUSIC MADE WITH THE PLUGIN
+================================================================
+
+Short answer: YES for normal beat-making, with two exceptions
+(RAVE variants and other people's voices).
+
+  FEATURE                        SELL THE RESULT?
+  ------------------------------------------------------------
+  ACE-Step instrumental           YES
+  ACE-Step vocals / hooks         YES
+  ACE-Step one-shots              YES
+  Demucs stem separation          YES
+  RVC voice conversion            YES, if the voice is yours or
+                                  you have permission
+  Auto-tune / FX / mastering      YES
+  RAVE MUTATE variants            NO (non-commercial licence)
+
+Why the RAVE exception: the RAVE framework and the bundled
+voice_multi weights are CC-BY-NC 4.0 - "NC" means non-commercial.
+Free use with credit is fine. Selling a beat that contains a RAVE
+variant is a gray area at best, so treat it as not allowed. If you
+love the mutation sound, the clean path is to train your own small
+timbre model (or license one commercially) and plug that in instead.
+
+What about the AI VOCALS specifically?
+  * The audio itself is yours to use. RVC and ACE-Step do not claim
+    a royalty on your output.
+  * The voice matters more than the tool. Training on your own voice,
+    a hired singer, or a voice you have written permission to use is
+    fine. Cloning a famous artist, or a singer who did not agree, is
+    not - even for a free beat.
+  * Keep a note of consent. A one-line message from a singer saying
+    "you can use my voice for these tracks" is worth keeping.
+
+Copyright and disclosure
+  * In the US and several other countries, purely AI-generated audio
+    may not be copyrightable on its own, because copyright needs
+    human authorship. Your arrangement, sound design, editing and
+    mixing are human authorship - keep the project files as evidence.
+  * Major platforms (Spotify, YouTube, TikTok) increasingly require
+    AI disclosure. Label AI vocals where the platform asks. It costs
+    nothing and avoids takedowns.
+
+Lyrics
+  * Do not paste lyrics you do not own into the LYRICS box.
+  * Generated lyrics can occasionally echo training data. Read them
+    before release; you are responsible for what you ship.
+
+
+================================================================
+ROYALTY-FREE LOOPS AND SAMPLES
+================================================================
+
+Your workflow - chop it, move the notes, process it until the source
+is unrecognisable - is normal production. It does not change the
+licence, though.
+
+  * The loop pack licence still applies to the recording.
+  * Most royalty-free licences allow commercial songs and forbid
+    redistributing the loop "as a loop" or inside another sample pack.
+  * "You can't hear the original anymore" is not a legal defence,
+    but in practice most licences already permit what you are doing.
+  * Keep the receipt / licence text for each pack. A folder called
+    Licences\ with the PDF or screenshot is enough.
+  * Do not put a commercial loop into Training\ and then share the
+    trained model unless the pack licence allows training.
+
+
+================================================================
+B. SELLING OR SHARING THE PLUGIN
+================================================================
+
+AS PACKAGED TODAY: free / non-commercial.
+
+Two reasons:
+
+  1. RAVE (code + voice_multi weights) is CC-BY-NC 4.0.
+     Non-commercial only. This is the blocker for selling.
+
+  2. JUCE 9 is licensed under AGPLv3 or a JUCE tier. The free tier
+     (Starter) only covers revenue up to $20,000/year; above that
+     you need Indie ($800 perpetual, up to $300k) or Pro ($3,500
+     perpetual, unlimited). If you distribute under AGPLv3 instead,
+     you must publish the complete corresponding source.
+
+     For a free release by an individual under $20k, Starter costs
+     nothing and does not force you to publish the source.
+
+WHAT YOU CAN DO RIGHT NOW
+  * Use it yourself, for free, including on music you sell.
+  * Give it to friends for free.
+  * Publish it for free with this file, THIRD-PARTY.txt and the
+    LICENSES folder. If you are under $20k revenue, register the
+    free JUCE Starter tier. If you prefer AGPLv3, also publish the
+    source.
+  * Put it on a free download page with the attribution text from
+    THIRD-PARTY.txt.
+
+WHAT YOU CANNOT DO AS PACKAGED
+  * Sell it while it contains the CC-BY-NC RAVE engine.
+  * Put it behind a paywall or a paid tier.
+  * Ship it in a commercial bundle.
+  * Relicense it as closed source without a JUCE licence.
+
+TO MAKE A SELLABLE BUILD
+  1. Pick the JUCE tier that fits your revenue: Starter (free,
+     under $20k), Indie ($800 perpetual, under $300k), or Pro
+     ($3,500 perpetual). One seat per developer. Do not mix tiers
+     in the same product line.
+  2. Remove the RAVE engine and its model files, or replace them with
+     a model you trained yourself or licensed for commercial use.
+  3. Keep every MIT / Apache / MPL notice and the LICENSES folder.
+  4. Keep the ACE-Step NOTICE and state any files you modified.
+  5. Re-audit THIRD-PARTY.txt. Anything marked NC must be gone.
+
+The rest of the stack - ACE-Step (Apache-2.0 code, MIT weights),
+ggml, Demucs, Eigen, ONNX Runtime, RVC, ContentVec, RMVPE - is
+compatible with a commercial product as long as notices are kept.
+
+NOTE ON THE JUCE REVENUE LIMIT
+  It is based on your previous 12 months and, for an individual,
+  covers revenue from your use of the Framework from all sources.
+  If your beat sales and plugin sales together approach $20k, the
+  safe move is to upgrade to Indie. If the boundary matters to you,
+  ask sales@juce.com - they will not give legal advice, but they can
+  confirm how the tier applies.
+
+DO YOU NEED TO BUY NOW?
+  No. You are not distributing the plugin today, and the free
+  Starter tier covers you until $20k. Register Starter (free) so a
+  licence is on record, and only buy Indie/Pro when you actually
+  cross the threshold or start selling the plugin.
+
+
+================================================================
+TRAINING DATA - THE PART PEOPLE FORGET
+================================================================
+
+  * Train only on audio you recorded, own, or that is explicitly
+    royalty-free AND allows model training.
+  * Do not scrape an artist's catalogue to build a voice.
+  * Do not train on a purchased loop pack unless its licence says
+    training is allowed.
+  * If you publish a trained model, it carries the rights of its
+    training data, not just the code licence.
+  * Keep a simple log: source, date, permission. Future you will
+    thank present you.
+
+
+================================================================
+GOOD HABITS
+================================================================
+
+  1. Keep the LICENSES\ folder with the app. It is installed to
+     %APPDATA%\BtP Oven\Legal\.
+  2. Add one row to THIRD-PARTY.txt whenever you add a dependency,
+     at the moment you add it.
+  3. Save the licence for every sample pack and voice you use.
+  4. When unsure, prefer MIT / Apache-2.0 / BSD for code and
+     MIT / Apache-2.0 for weights. Avoid NC and "research only"
+     if you plan to sell.
+  5. Attribution is a courtesy; the licence is the permission.
+     Do both.
+
+================================================================
+  Make music. Pay people. Credit tools.
+================================================================

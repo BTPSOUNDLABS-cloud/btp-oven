@@ -1,0 +1,28 @@
+{
+  "ai": "rvc",
+  "kind": "voice",
+  "version": 1,
+  "voice_name": "my_rnb_male",
+  "capture_folder": "%APPDATA%\\BtP Oven\\Training\\Vocals",
+  "output_model": "%APPDATA%\\BtP Oven\\Models\\RVC\\voices\\my_rnb_male.onnx",
+  "settings": {
+    "sample_rate": 40000,
+    "epochs": 200,
+    "batch_size": 8,
+    "save_every": 40,
+    "pitch_guidance": true,
+    "f0_method": "rmvpe",
+    "index_rate": 0.75,
+    "protect": 0.33
+  },
+  "source_audio": {
+    "formats": ["wav", "mp3", "ogg", "flac"],
+    "min_minutes": 10,
+    "recommended_minutes": 30,
+    "one_speaker": true,
+    "dry_no_reverb": true,
+    "mono_preferred": true
+  },
+  "command": "python Tools\\train_voice.py --name \"my_rnb_male\" --epochs 200",
+  "notes": "Capture with VOICE -> TRAIN & SAVE. Train only on audio you own or royalty-free audio, and only with the speaker's permission."
+}

@@ -1,0 +1,199 @@
+================================================================
+  BtP OVEN  -  NOTEBOOK / FOLDER LAYOUT (visual)
+================================================================
+
+Copy this page into OneNote / Notion / a text file.  It is the
+"where does this audio go" map for the whole training system.
+
+
+----------------------------------------------------------------
+A. THE BIG PICTURE
+----------------------------------------------------------------
+
+   YOU MAKE / GENERATE AUDIO IN THE PLUGIN
+                    |
+                    |  press TRAIN (or TRAIN & SAVE)
+                    v
+   +---------------------------------------------+
+   |  %APPDATA%\BtP Oven\Training\               |
+   |                                             |
+   |   Vocals\      Loops\      Variants\        |
+   |   OneShots\    Stems\                       |
+   +---------------------------------------------+
+                    |
+                    |  run one Python script (GPU)
+                    v
+   +---------------------------------------------+
+   |  NEW MODEL (.onnx)                          |
+   |   %APPDATA%\BtP Oven\Models\RVC\voices\     |
+   +---------------------------------------------+
+                    |
+                    |  restart plugin / reopen page
+                    v
+   NEW VOICE APPEARS IN THE VOICE DROPDOWN
+
+
+----------------------------------------------------------------
+B. FOLDER TREE
+----------------------------------------------------------------
+
+%APPDATA%\BtP Oven\
+|
++-- Models\                       (the models the plugin runs)
+|   +-- ACE-Step\
+|   |   +-- acestep-v15-turbo-Q8_0.gguf
+|   |   +-- Qwen3-Embedding-0.6B-Q8_0.gguf
+|   |   +-- vae-BF16.gguf
+|   |   +-- acestep-5Hz-lm-4B-Q8_0.gguf
+|   +-- Demucs\
+|   |   +-- ggml-model-htdemucs-4s-f16.bin
+|   +-- RVC\
+|   |   +-- hubert\vec-768-layer-12.onnx
+|   |   +-- rmvpe\rmvpe.onnx
+|   |   +-- voices\               <-- YOUR TRAINED VOICES
+|   |       +-- my_rnb_male.onnx
+|   +-- RAVE\
+|       +-- rave_encoder.onnx
+|       +-- rave_decoder.onnx
+|       +-- pqmf_hk.bin
+|
++-- Training\                     (audio captured from the plugin)
+|   +-- Vocals\
+|   |   +-- rnb_male_take_20261105_101010.wav
+|   |   +-- rnb_male_take_20261105_101530.wav
+|   +-- Loops\
+|   |   +-- dark_trap_140_20261105_110000.wav
+|   +-- Variants\
+|   |   +-- cash_metallic_var_20261105_112000.wav
+|   +-- OneShots\
+|   |   +-- FX\
+|   |   +-- Impacts\
+|   |   +-- Risers\
+|   |   +-- Pads\
+|   |   +-- Vocal Chops\
+|   |   +-- Sirens\
+|   |   +-- Phones\
+|   |   +-- Cash\
+|   |   +-- Ambience\
+|   |   +-- Synth One Shots\
+|   +-- Stems\
+|   |   +-- drums\
+|   |   +-- bass\
+|   |   +-- other\
+|   |   +-- vocals\
+|   +-- runs\                     (script work folders)
+|   +-- manifests\                (example JSON recipes)
+|
++-- Datasets\                     (optional dataset manager)
++-- one-shot library\             (chosen in the SHOTS page)
++-- ai_settings.json
++-- stem_settings.json
++-- rvc_settings.json
++-- oneshot_settings.json
+
+
+----------------------------------------------------------------
+C. "WHAT BUTTON SAVES WHERE" CHEAT SHEET
+----------------------------------------------------------------
+
+  +----------------+-------------+---------------------------------+
+  | PAGE           | BUTTON      | SAVES TO                        |
+  +----------------+-------------+---------------------------------+
+  | VOICE          | TRAIN&SAVE  | Training\Vocals                 |
+  | AI GEN         | TRAIN       | Training\Loops                  |
+  | AI GEN (sung)  | TRAIN       | Training\Vocals                 |
+  | SHOTS          | TRAIN       | Training\OneShots\<category>    |
+  | SHOTS (RAVE)   | TRAIN VAR   | Training\Variants               |
+  | STEM drums     | TRAIN       | Training\Stems\drums            |
+  | STEM bass      | TRAIN       | Training\Stems\bass             |
+  | STEM other     | TRAIN       | Training\Stems\other            |
+  | STEM vocals    | TRAIN       | Training\Stems\vocals           |
+  +----------------+-------------+---------------------------------+
+
+  Note: the plugin picks the folder from WHAT the audio is, not from
+  which page you are on.  A sung AI take goes to Vocals even though
+  you pressed the button on the AI GEN page.
+
+
+----------------------------------------------------------------
+D. JOB CARD (copy one per model you train)
+----------------------------------------------------------------
+
+  --------------------------------------------------------------
+  MODEL NAME : ______________________________
+
+  TYPE       : [ ] RVC voice   [ ] RAVE   [ ] ACE LoRA
+  CREATED    : ____ / ____ / ________
+
+  SOURCE     : Training\____________________
+  FILES      : ________  files
+  DURATION   : ________  minutes
+
+  SETTINGS
+    sample rate : __________
+    epochs      : __________
+    batch size  : __________
+    f0 method   : __________
+
+  COMMAND RUN
+    ________________________________________________________
+
+  OUTPUT FILE
+    %APPDATA%\BtP Oven\Models\____________________
+
+  RESULT
+    [ ] works   [ ] needs more audio   [ ] retrain
+
+  NOTES
+    ________________________________________________________
+    ________________________________________________________
+  --------------------------------------------------------------
+
+
+----------------------------------------------------------------
+E. SESSION LOG (copy for each session)
+----------------------------------------------------------------
+
+  DATE : ____ / ____ / ________
+  BPM  : ______     KEY : ______
+
+  WHAT I MADE
+    ________________________________________________________
+    ________________________________________________________
+
+  CAPTURED
+    Vocals    : ______ files
+    Loops     : ______ files
+    OneShots  : ______ files
+    Variants  : ______ files
+    Stems     : ______ files
+
+  BUGS / WEIRD STUFF
+    ________________________________________________________
+    ________________________________________________________
+
+  NEXT IDEA
+    ________________________________________________________
+
+
+----------------------------------------------------------------
+F. NAMING RULES (so files stay findable)
+----------------------------------------------------------------
+
+  The plugin names captures automatically:
+      <prompt-slug>_<timestamp>.wav
+
+  When you save something by hand, use:
+
+      <artist-or-source>_<type>_<bpm>_<key>_<take>.wav
+
+  examples:
+      btp_vocal_rnb_140_Fmin_take03.wav
+      btp_drum_trap_140_Fmin_loop01.wav
+      btp_oneshot_cash_metallic_01.wav
+
+  Keep 10+ minutes of ONE voice in Vocals\ before training.
+  Keep ONE style / tempo family per Loops\ subfolder if you add
+  subfolders of your own.
+
+================================================================

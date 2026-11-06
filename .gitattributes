@@ -1,0 +1,16 @@
+# Normalise line endings so the repo doesn't churn between machines.
+* text=auto eol=lf
+
+# Windows build artifacts and binaries are never text.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.zip  binary
+*.exe  binary
+*.dll  binary
+*.lib  binary
+*.pdb  binary
+*.onnx binary
+*.gguf binary
+*.bin  binary

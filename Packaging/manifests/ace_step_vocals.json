@@ -1,0 +1,24 @@
+{
+  "ai": "ace_step",
+  "kind": "vocals",
+  "version": 1,
+  "name": "rnb_vocal_take",
+  "capture_folder": "%APPDATA%\\BtP Oven\\Training\\Vocals",
+  "settings": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "bpm": 90,
+    "bars": 8,
+    "duration_seconds": 14.0,
+    "steps": 8,
+    "guidance": 7.5,
+    "seed": 1234,
+    "with_vocals": true,
+    "write_lyrics": true,
+    "language": "en"
+  },
+  "prompt": "smooth r&b ballad, 90 bpm, warm keys, soft drums, intimate male vocal",
+  "lyrics": "[verse]\nlate night, city lights on the window\n[chorus]\nstay with me, don't let the moment go",
+  "tags": ["rnb", "vocal", "ballad"],
+  "notes": "The VOCALS toggle enables the 4B LM. Takes longer and uses much more VRAM than instrumental generation."
+}

@@ -1,0 +1,73 @@
+================================================================================
+  BtP OVEN  -  LICENCE
+================================================================================
+
+Copyright (c) 2026 BtP. All rights reserved.
+
+This repository is SOURCE AVAILABLE, not open source. You may read the
+code and build it. You may not take it and call it yours.
+
+--------------------------------------------------------------------------------
+YOU MAY
+--------------------------------------------------------------------------------
+
+  * Read, study and learn from this source code.
+  * Build the plugin for your own personal use.
+  * Use the plugin to make music, including music you sell. Output audio
+    is yours; this licence places no claim on your recordings.
+  * Modify the source for your own private use.
+  * Share the plugin with others free of charge, provided this licence
+    and all third-party notices are included unmodified.
+
+--------------------------------------------------------------------------------
+YOU MAY NOT
+--------------------------------------------------------------------------------
+
+  * Sell the plugin, its binaries, or a bundle containing it.
+  * Put the plugin (or a build of it) behind a paywall or paid tier.
+  * Distribute a modified build without written permission.
+  * Remove or alter the copyright notices or the third-party notices
+    in Packaging/THIRD-PARTY.txt and Packaging/LICENSES/.
+
+--------------------------------------------------------------------------------
+THIRD-PARTY COMPONENTS
+--------------------------------------------------------------------------------
+
+This licence covers only the original BtP Oven source in this repository.
+It does not apply to anything listed below, which keeps its own terms:
+
+  JUCE 9          AGPLv3 or a commercial JUCE licence.
+                  This project is distributed under the free JUCE Starter
+                  tier (revenue under USD 20,000/year).
+  ACE-Step 1.5    Apache-2.0 code, MIT weights.
+  ggml            MIT.
+  yyjson          MIT.
+  Demucs          MIT code (facebookresearch), MIT weights.
+  demucs.cpp      MIT.
+  Eigen           MPL-2.0.
+  ONNX Runtime    MIT.
+  RVC             MIT. Voice models are NOT covered and are never bundled.
+  ContentVec      MIT.
+  RMVPE           MIT.
+  RAVE            CC-BY-NC 4.0, code AND weights. NON-COMMERCIAL.
+
+Full inventory, obligations and audit notes:  Packaging/THIRD-PARTY.txt
+Plain-English rules for selling music:        Packaging/LICENSING.txt
+Actual licence texts:                         Packaging/LICENSES/
+
+Because RAVE is non-commercial, this release may not be sold in any form
+that includes the RAVE engine or its model files. See Packaging/LICENSING.txt
+section B before building anything commercial.
+
+--------------------------------------------------------------------------------
+NO WARRANTY
+--------------------------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+================================================================================

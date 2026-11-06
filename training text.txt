@@ -1,0 +1,20 @@
+VOICE (RVC)	TRAIN & SAVE	Training\Vocals\
+AI GEN (ACE)	TRAIN	Training\Loops\ — or Vocals\ if it was a sung take
+SHOTS	TRAIN	Training\OneShots\<category>\ (FX, Pads, etc.)
+SHOTS (RAVE)	TRAIN VAR	Training\Variants\
+STEM	TRAIN (per stem)	Training\Stems\<drums/bass/other/vocals>\
+All under %APPDATA%\BtP Oven\Training\. It auto-names files (timestamp + a slug of your prompt), so nothing collides. That's exactly your example — RVC knows it's a vocal → vocal folder; ACE knows it's a loop → loop folder.
+
+The one honest split
+Capture (save → folder): ✅ in-plugin, done.
+Training (folder → new voice/model): this is a ~30–60 min GPU step (RVC's actual neural training), so it can't run inside the VST. I wrote train_voice.py (in the project root) that takes the Training\Vocals folder → preprocess → extract f0/features → train → export .onnx → auto-dropped into D:\Dev\rvc-models\voices\. Run it once per voice:
+python train_voice.py --name "my_rnb_female"
+The full learning loop now works
+Make/generate audio in the plugin → hit TRAIN & SAVE → lands in the right Training\ folder.
+When you've got ~10+ min of one voice, run train_voice.py → new .onnx voice.
+Restart the VOICE dropdown → your custom R&B/trap voice is there.
+(Same idea later for RAVE models from Training\Loops/Variants.)
+Put these in your bug notebook
+train_voice.py is a v1 wrapper — the RVC training hyperparameters (epochs, batch_size) may need a tweak for your taste; the preprocess/export steps are solid (they're the same functions I already used successfully).
+Training needs the RVC-WebUI venv (D:\Dev\ai-gen-app\Retrieval-based-Voice-Conversion-WebUI) intact — if it's missing a dependency on first run, tell me and I'll fix the script.
+That completes the whole vision: Prompt → music → vocals → RVC voice → one-shots → RAVE variants → stems → auto-tune → FX → and now a self-learning training pipeline. Go make beats and start the bug notebook. 👊

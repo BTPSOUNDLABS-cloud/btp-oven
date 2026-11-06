@@ -1,0 +1,225 @@
+================================================================
+  BtP OVEN  -  THIRD-PARTY SOFTWARE AND MODEL LICENSES
+================================================================
+
+Last audited: 2026-11-05
+Release:      1.0.0
+
+This file lists every third-party component that ships inside, or is
+compiled into, BtP Oven, together with the license that governs it.
+
+IMPORTANT: code and AI model weights are usually licensed separately.
+A project can publish MIT code and ship CC-BY-NC checkpoints. Both
+rows below matter.
+
+This is an engineering inventory, not legal advice.
+
+
+----------------------------------------------------------------
+SUMMARY - WHAT YOU CAN DO
+----------------------------------------------------------------
+
+  Use the plugin for free, including on music you sell ....... YES
+  Sell music made with ACE-Step / Demucs / RVC ............... YES
+  Sell music that uses RAVE mutations ....................... NO (see RAVE)
+  Sell / redistribute this plugin exactly as packaged ........ NO (RAVE is NC)
+  Redistribute it for free with attribution .................. YES
+  Sell the plugin after buying JUCE + replacing RAVE ......... YES
+    (JUCE Starter is free under $20k revenue; Indie is $800
+     perpetual up to $300k; Pro is $3,500 unlimited)
+
+
+----------------------------------------------------------------
+COMPONENT INVENTORY
+----------------------------------------------------------------
+
+1. JUCE 9
+   Used for:  plugin framework, UI, VST3 wrapper, standalone
+   Code:      AGPLv3 OR a JUCE licence (Starter / Indie / Pro /
+              Educational)
+   Weights:   n/a
+   Commercial redistribution: with the JUCE licence tier that fits
+              your revenue. Under AGPLv3 you may also distribute,
+              but must publish the complete corresponding source.
+   Tiers (checked 2026-11-05, USD):
+              Starter      free      revenue up to $20,000
+              Indie        $40/user/month or $800 perpetual
+                                     revenue up to $300,000
+              Pro          $175/user/month or $3,500 perpetual
+                                     unlimited revenue
+              Educational  free      educational use only
+   Licence file: LICENSES/JUCE-LICENSE.md
+                 LICENSES/AGPL-3.0.txt
+   Upstream:  https://juce.com/get-juce/
+   Note:      One seat per developer. The revenue limit is based on
+              the previous 12 months and, for an individual, covers
+              revenue from your use of the Framework from all sources.
+              Product tiers cannot be mixed (Starter product + Indie
+              product in the same product line).
+
+2. ACE-Step 1.5  (acestep-core: pipeline-synth, pipeline-lm, request)
+   Used for:  text-to-music, lyrics + vocals, one-shot generation
+   Code:      Apache-2.0
+   Weights:   MIT (ACE-Step/Ace-Step1.5 and Serveurperso GGUF)
+   Commercial use: YES
+   Obligations: keep the NOTICE/attribution, state files you changed.
+   Licence file: LICENSES/ACE-Step-LICENSE.txt
+                 LICENSES/Apache-2.0.txt
+   Upstream:  https://github.com/ace-step/ACE-Step
+
+3. ggml
+   Used for:  CPU/GPU inference backend for ACE-Step
+   Code:      MIT
+   Weights:   n/a
+   Commercial use: YES
+   Licence file: LICENSES/MIT-ggml.txt
+   Upstream:  https://github.com/ggerganov/ggml
+
+4. yyjson  (vendored inside ACE-Step)
+   Used for:  JSON parsing
+   Code:      MIT
+   Weights:   n/a
+   Commercial use: YES
+   Licence file: LICENSES/MIT-yyjson.txt
+   Upstream:  https://github.com/ibireme/yyjson
+
+5. Demucs v4 (htdemucs) + demucs.cpp
+   Used for:  4-stem separation (drums / bass / other / vocals)
+   Code:      MIT (facebookresearch/demucs)
+              MIT (sevagh/demucs.cpp)
+   Weights:   MIT (ogbabydiesal/demucs-ggml)
+   Commercial use: YES
+   Licence files: LICENSES/MIT-demucs.txt
+                  LICENSES/MIT-demucs-cpp.txt
+   Upstream:  https://github.com/facebookresearch/demucs
+              https://github.com/sevagh/demucs.cpp
+
+6. Eigen
+   Used for:  matrix math inside demucs.cpp
+   Code:      MPL-2.0
+   Weights:   n/a
+   Commercial use: YES
+   Obligations: MPL is file-level copyleft. If you modify Eigen's own
+                files, publish those modified files. Linking is fine.
+   Licence file: LICENSES/MPL-2.0.txt
+   Upstream:  https://eigen.tuxfamily.org
+
+7. ONNX Runtime 1.31.1
+   Used for:  RVC and RAVE inference
+   Code:      MIT
+   Weights:   n/a
+   Commercial use: YES
+   Licence file: LICENSES/MIT-onnxruntime.txt
+   Upstream:  https://github.com/microsoft/onnxruntime
+
+8. RVC  (Retrieval-based Voice Conversion)
+   Used for:  voice conversion pipeline and ONNX export layout
+   Code:      MIT
+   Weights:   voice models are NOT bundled. Each voice model you add
+              has its own rights. You must have permission to use and
+              (if you share it) redistribute that voice.
+   Commercial use of code: YES
+   Commercial use of a voice: depends on the voice, not on RVC.
+   Licence file: LICENSES/MIT-RVC.txt
+   Upstream:  https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
+
+9. ContentVec / HuBERT  (vec-768-layer-12.onnx)
+   Used for:  RVC content features
+   Code/weights: MIT (lj1995/VoiceConversionWebUI, ContentVec)
+   Commercial use: YES
+   Licence file: LICENSES/MIT-ContentVec.txt
+   Upstream:  https://github.com/auspicious3000/contentvec
+
+10. RMVPE  (rmvpe.onnx, optional pitch tracker)
+    Used for:  optional high-quality f0 extraction
+    Code/weights: MIT (as published in lj1995/VoiceConversionWebUI)
+    Commercial use: YES
+    Licence file: LICENSES/MIT-ContentVec.txt (same MIT terms)
+    Upstream:  https://huggingface.co/lj1995/VoiceConversionWebUI
+
+11. RAVE  (acids-ircam) + voice_multi weights
+    Used for:  timbre mutation / variant generation, PQMF reference
+    Code:      CC-BY-NC 4.0
+    Weights:   CC-BY-NC 4.0 (Intelligent Instruments Lab voice_multi)
+    Commercial use: NO.
+    Obligations: attribution to the authors; non-commercial only.
+    Licence files: LICENSES/RAVE-LICENSE-CC-BY-NC-4.0.txt
+                   LICENSES/CC-BY-NC-4.0.txt
+    Upstream:  https://github.com/acids-ircam/RAVE
+               https://github.com/Intelligent-Instruments-Lab/rave-voice-multi
+
+    WHAT THIS MEANS
+      * Free / non-commercial use of the plugin with RAVE is allowed.
+      * Selling the plugin with these RAVE files is NOT allowed.
+      * Audio produced through the RAVE engine is a gray area under
+        an NC model licence. Treat it as non-commercial unless you
+        have written permission.
+      * To make a commercial build: remove the RAVE engine and model
+        files, or replace them with a model you trained yourself or
+        licensed commercially. The rest of the plugin is unaffected.
+
+12. Audio you supply
+    Training audio, voice models, loops and samples are yours (or
+    your licensors'). They are not covered by this file.
+
+
+----------------------------------------------------------------
+BUNDLED VS OPTIONAL
+----------------------------------------------------------------
+
+Bundled in the default "Core" release:
+  Demucs model, RVC ContentVec, RMVPE, RAVE encoder/decoder/PQMF.
+
+Downloaded only on request:
+  ACE-Step turbo, Qwen embedding, VAE, 4B LM (Apache-2.0 code,
+  MIT weights).
+
+Never bundled:
+  RVC voice models, your training audio, any sample packs.
+
+
+----------------------------------------------------------------
+ATTRIBUTION TEXT (paste this where you credit tools)
+----------------------------------------------------------------
+
+  Built with JUCE, ACE-Step 1.5, ggml, Demucs/demucs.cpp, Eigen,
+  ONNX Runtime and RVC. RAVE variant generation uses the RAVE
+  framework and voice_multi weights by Intelligent Instruments Lab,
+  licensed CC-BY-NC 4.0.
+
+
+----------------------------------------------------------------
+AUDIT NOTES - WHAT CHANGED AND WHY
+----------------------------------------------------------------
+
+This inventory was checked on 2026-11-05 against the upstream
+LICENSE files and model cards, not against summaries. Three entries
+were corrected during the audit:
+
+  RAVE
+    Earlier assumption: MIT code, with separate weight terms.
+    Reality: the acids-ircam/RAVE repository ships CC-BY-NC 4.0,
+    and voice_multi is also CC-BY-NC 4.0. Treated as non-commercial
+    for both code and weights. This is why a paid build must remove
+    or replace RAVE.
+
+  ACE-Step
+    Earlier assumption: MIT.
+    Reality: the framework code is Apache-2.0; the model weights are
+    MIT. Both permit commercial use; Apache adds a NOTICE and a
+    "state your changes" obligation.
+
+  JUCE
+    Earlier assumption: GPLv3 or commercial.
+    Reality: JUCE 9 is AGPLv3 or a JUCE licence tier. The free tier
+    is Starter (revenue up to $20,000); Indie and Pro are paid.
+
+Why the confusion happens: a repository can have MIT code and
+non-MIT weights, and search results / chat assistants usually quote
+the first licence tag they see. Always open LICENSE, the model card,
+and the HF "license:" tag for the exact files you ship.
+
+If you reuse this project, keep this file with it. It is the record
+that the licensing was checked deliberately rather than assumed.
+
+================================================================

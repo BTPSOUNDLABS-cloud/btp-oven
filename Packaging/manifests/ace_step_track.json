@@ -1,0 +1,24 @@
+{
+  "ai": "ace_step",
+  "kind": "track",
+  "version": 1,
+  "name": "dark_trap_140",
+  "capture_folder": "%APPDATA%\\BtP Oven\\Training\\Loops",
+  "dataset_folder": "%APPDATA%\\BtP Oven\\Datasets\\dark_trap_140",
+  "settings": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "bpm": 140,
+    "bars": 8,
+    "duration_seconds": 12.0,
+    "steps": 8,
+    "guidance": 7.0,
+    "seed": 42,
+    "loop": true,
+    "normalize": true,
+    "trim_silence": true
+  },
+  "prompt": "dark trap beat, 140 bpm, booming 808, crisp hi-hats, eerie bell melody, vinyl texture",
+  "tags": ["trap", "dark", "808", "instrumental"],
+  "notes": "Instrumental only. Use the same BPM/key across a set before training a style LoRA."
+}

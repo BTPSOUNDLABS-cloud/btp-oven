@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "updated": "2026-11-05",
+  "notes": "Model download manifest for Install-BtPOven.ps1. Files marked bundle_only are shipped inside the release zip (Models folder) because no public download exists.",
+  "models": [
+    {
+      "pack": "ACE-Step",
+      "file": "acestep-v15-turbo-Q8_0.gguf",
+      "dest": "ACE-Step/acestep-v15-turbo-Q8_0.gguf",
+      "url": "https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF/resolve/main/acestep-v15-turbo-Q8_0.gguf",
+      "size": 2549528000,
+      "required": true
+    },
+    {
+      "pack": "ACE-Step",
+      "file": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "dest": "ACE-Step/Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "url": "https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "size": 784144960,
+      "required": true
+    },
+    {
+      "pack": "ACE-Step",
+      "file": "vae-BF16.gguf",
+      "dest": "ACE-Step/vae-BF16.gguf",
+      "url": "https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF/resolve/main/vae-BF16.gguf",
+      "size": 337420928,
+      "required": true
+    },
+    {
+      "pack": "ACE-Step",
+      "file": "acestep-5Hz-lm-4B-Q8_0.gguf",
+      "dest": "ACE-Step/acestep-5Hz-lm-4B-Q8_0.gguf",
+      "url": "https://huggingface.co/Serveurperso/ACE-Step-1.5-GGUF/resolve/main/acestep-5Hz-lm-4B-Q8_0.gguf",
+      "size": 4457323648,
+      "required": false,
+      "note": "Optional 4B lyric/CoT LM. Needed only for the VOCALS toggle. Skip for instrumental-only installs."
+    },
+    {
+      "pack": "Demucs",
+      "file": "ggml-htdemucs-4s-f16.bin",
+      "dest": "Demucs/ggml-model-htdemucs-4s-f16.bin",
+      "url": "https://huggingface.co/ogbabydiesal/demucs-ggml/resolve/main/ggml-htdemucs-4s-f16.bin",
+      "size": 83994361,
+      "required": true
+    },
+    {
+      "pack": "RVC",
+      "file": "vec-768-layer-12.onnx",
+      "dest": "RVC/hubert/vec-768-layer-12.onnx",
+      "url": null,
+      "bundle_only": true,
+      "size": 360200000,
+      "required": true,
+      "note": "ContentVec/HuBERT ONNX used by the VOICE page. Shipped in the release zip."
+    },
+    {
+      "pack": "RVC",
+      "file": "rmvpe.onnx",
+      "dest": "RVC/rmvpe/rmvpe.onnx",
+      "url": "https://huggingface.co/lj1995/VoiceConversionWebUI/resolve/main/rmvpe.onnx",
+      "size": 361688443,
+      "required": false,
+      "note": "Optional high-quality pitch tracker. The current RVC build uses autocorrelation f0."
+    },
+    {
+      "pack": "RAVE",
+      "file": "rave_encoder.onnx",
+      "dest": "RAVE/rave_encoder.onnx",
+      "url": null,
+      "bundle_only": true,
+      "size": 61280000,
+      "required": true,
+      "note": "Custom ONNX export of the voice_multi RAVE encoder. Shipped in the release zip."
+    },
+    {
+      "pack": "RAVE",
+      "file": "rave_decoder.onnx",
+      "dest": "RAVE/rave_decoder.onnx",
+      "url": null,
+      "bundle_only": true,
+      "size": 59080000,
+      "required": true,
+      "note": "Custom ONNX export of the voice_multi RAVE decoder (noise-free variant). Shipped in the release zip."
+    },
+    {
+      "pack": "RAVE",
+      "file": "pqmf_hk.bin",
+      "dest": "RAVE/pqmf_hk.bin",
+      "url": null,
+      "bundle_only": true,
+      "size": 32768,
+      "required": true,
+      "note": "16-band PQMF filter bank used by the RAVE engine. Shipped in the release zip."
+    }
+  ]
+}

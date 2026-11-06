@@ -1,0 +1,20 @@
+{
+  "ai": "demucs",
+  "kind": "stems",
+  "version": 1,
+  "name": "four_stem_split",
+  "capture_folder": "%APPDATA%\\BtP Oven\\Training\\Stems",
+  "source": {
+    "mode": "loop",
+    "loop": "C",
+    "file": null
+  },
+  "stems": ["drums", "bass", "other", "vocals"],
+  "settings": {
+    "sample_rate": 44100,
+    "channels": 2,
+    "model": "htdemucs-4s-f16",
+    "normalize": false
+  },
+  "notes": "Source can be a loop (A/B/C) or a file. Each stem has its own TO A/B/C, EXPORT and TRAIN button."
+}

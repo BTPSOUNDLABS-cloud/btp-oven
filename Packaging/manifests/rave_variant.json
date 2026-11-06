@@ -1,0 +1,25 @@
+{
+  "ai": "rave",
+  "kind": "timbre_variant",
+  "version": 1,
+  "name": "my_vocal_timbre",
+  "capture_folder": "%APPDATA%\\BtP Oven\\Training\\Variants",
+  "source_folders": [
+    "%APPDATA%\\BtP Oven\\Training\\OneShots",
+    "%APPDATA%\\BtP Oven\\Training\\Loops",
+    "%APPDATA%\\BtP Oven\\Training\\Vocals"
+  ],
+  "settings": {
+    "sample_rate": 48000,
+    "latent_size": 128,
+    "variation": 0.4,
+    "variants_per_source": 8,
+    "normalize": true
+  },
+  "model_files": {
+    "encoder": "%APPDATA%\\BtP Oven\\Models\\RAVE\\rave_encoder.onnx",
+    "decoder": "%APPDATA%\\BtP Oven\\Models\\RAVE\\rave_decoder.onnx",
+    "pqmf": "%APPDATA%\\BtP Oven\\Models\\RAVE\\pqmf_hk.bin"
+  },
+  "notes": "Run MUTATE on the SHOTS page. VAR controls how far the latent moves. Captured variants go to Training\\Variants."
+}

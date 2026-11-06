@@ -1,0 +1,35 @@
+{
+  "ai": "ace_step",
+  "kind": "one_shot",
+  "version": 1,
+  "name": "metallic_cash_hit",
+  "capture_folder": "%APPDATA%\\BtP Oven\\Training\\OneShots",
+  "library_folder": "%APPDATA%\\BtP Oven\\OneShotLibrary",
+  "settings": {
+    "sample_rate": 48000,
+    "channels": 2,
+    "duration_seconds": 1.5,
+    "steps": 8,
+    "guidance": 7.0,
+    "seed": 777,
+    "one_shot": true,
+    "trim_silence": true,
+    "normalize": true
+  },
+  "categories": [
+    "FX",
+    "Impacts",
+    "Risers",
+    "Pads",
+    "Vocal Chops",
+    "Sirens",
+    "Phones",
+    "Cash",
+    "Ambience",
+    "Synth One Shots"
+  ],
+  "category": "Cash",
+  "prompt": "metallic cash register hit, short, punchy, bright, slight reverb tail",
+  "tags": ["oneshot", "cash", "metallic"],
+  "notes": "The selected category becomes the sub-folder under Training\\OneShots and under the saved library."
+}
