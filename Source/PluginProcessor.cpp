@@ -86,7 +86,9 @@ BtPOvenAudioProcessor::~BtPOvenAudioProcessor()
 {
     stopTimer();
     RvcEngine::getInstance().shutdown();
+   #if BTP_HAS_RAVE
     RaveEngine::getInstance().shutdown();
+   #endif
 }
 
 //==============================================================================
@@ -753,7 +755,9 @@ void BtPOvenAudioProcessor::timerCallback()
     pollAiEngine();
     pollStemEngine();
     pollRvcEngine();
+   #if BTP_HAS_RAVE
     pollRaveEngine();
+   #endif
 
     if (! fxRecorder.isRecording())
         return;
@@ -944,6 +948,7 @@ bool BtPOvenAudioProcessor::sendVoiceToLoop (int loopIndex)
 //==============================================================================
 void BtPOvenAudioProcessor::pollRaveEngine()
 {
+   #if BTP_HAS_RAVE
     auto& engine = RaveEngine::getInstance();
 
     RaveEngine::Result result;
@@ -955,10 +960,12 @@ void BtPOvenAudioProcessor::pollRaveEngine()
     raveSeconds = result.seconds;
 
     setStatusMessage ("RAVE VARIANT READY  /  " + juce::String (result.seconds, 1) + " s");
+   #endif
 }
 
 void BtPOvenAudioProcessor::mutateLastOneShot (float variation)
 {
+   #if BTP_HAS_RAVE
     if (lastOneShot.getNumSamples() < 1024)
     {
         setStatusMessage ("GENERATE A ONE-SHOT FIRST");
@@ -968,10 +975,14 @@ void BtPOvenAudioProcessor::mutateLastOneShot (float variation)
     RaveEngine::getInstance().mutate (lastOneShot, 48000.0, variation,
                                       (juce::int64) juce::Time::getCurrentTime().toMilliseconds());
     setStatusMessage ("MUTATING...");
+   #else
+    juce::ignoreUnused (variation);
+   #endif
 }
 
 bool BtPOvenAudioProcessor::sendRaveToLoop (int loopIndex)
 {
+   #if BTP_HAS_RAVE
     if (lastRaveAudio.getNumSamples() < 64)
     {
         setStatusMessage ("NO VARIANT TO SEND YET");
@@ -983,6 +994,10 @@ bool BtPOvenAudioProcessor::sendRaveToLoop (int loopIndex)
 
     setStatusMessage ("VARIANT SENT TO LOOP " + loopLabel (loopIndex));
     return true;
+   #else
+    juce::ignoreUnused (loopIndex);
+    return false;
+   #endif
 }
 
 //==============================================================================

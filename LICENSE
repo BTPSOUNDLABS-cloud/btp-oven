@@ -4,42 +4,78 @@
 
 Copyright (c) 2026 BtP. All rights reserved.
 
-This repository is SOURCE AVAILABLE, not open source. You may read the
-code and build it. You may not take it and call it yours.
+This repository is SOURCE AVAILABLE, not open source.
+
+The short version: use the plugin, make music with it, keep the money you
+make from that music. Do not take the source, the builds, or the design and
+turn them into a product of your own.
 
 --------------------------------------------------------------------------------
 YOU MAY
 --------------------------------------------------------------------------------
 
-  * Read, study and learn from this source code.
-  * Build the plugin for your own personal use.
-  * Use the plugin to make music, including music you sell. Output audio
-    is yours; this licence places no claim on your recordings.
-  * Modify the source for your own private use.
-  * Share the plugin with others free of charge, provided this licence
-    and all third-party notices are included unmodified.
+  * Read and study this source code.
+  * Build the plugin from this source for your own personal use.
+  * Use the plugin to make music, including music you sell. The audio you
+    create is yours. This licence makes no claim on your recordings, your
+    songs, your beats, or your stems.
+  * Modify the source for your own private use on your own machine.
+  * Share the plugin with other people free of charge, provided this licence
+    and every third-party notice travel with it, unmodified.
 
 --------------------------------------------------------------------------------
 YOU MAY NOT
 --------------------------------------------------------------------------------
 
-  * Sell the plugin, its binaries, or a bundle containing it.
-  * Put the plugin (or a build of it) behind a paywall or paid tier.
-  * Distribute a modified build without written permission.
-  * Remove or alter the copyright notices or the third-party notices
-    in Packaging/THIRD-PARTY.txt and Packaging/LICENSES/.
+  * Sell, rent, lease or sublicense the plugin, its binaries, its source, or
+    any bundle or service built around it.
+  * Put the plugin, or a build of it, behind a paywall, a paid tier, a
+    subscription, or a "free with purchase" offer.
+  * Distribute a modified build, a renamed build, or a fork, whether free or
+    paid, without written permission.
+  * Use this source, or a substantial part of its design or implementation,
+    as the basis for a competing or derivative product.
+  * Publish the source as your own work, or claim authorship of the design.
+  * Remove or alter the copyright notices or the third-party notices in
+    Packaging/THIRD-PARTY.txt and Packaging/LICENSES/.
+
+Note on scope, stated plainly: copyright protects the code and the written
+material, not an abstract idea. What this licence does control is copying the
+implementation, redistributing builds, and reusing the source to make another
+product. That is what the restrictions above enforce.
+
+--------------------------------------------------------------------------------
+TWO BUILDS
+--------------------------------------------------------------------------------
+
+The source supports two configurations:
+
+  PERSONAL / FREE BUILD
+      RAVE variant engine compiled in. Free to use and share. May not be
+      sold, because the RAVE code and weights are CC-BY-NC 4.0.
+
+  COMMERCIAL BUILD
+      Compiled with -DBTP_ENABLE_RAVE=OFF and packaged with -NoRave. Contains
+      no non-commercial components. This is the only configuration covered
+      by a JUCE commercial licence and the only one that may be sold.
+
+Only BtP may produce and sell the commercial build. Building it yourself from
+this source does not grant you the right to distribute or sell it.
+
+See Packaging/BUILD-VARIANTS.txt and Packaging/LICENSING.txt.
 
 --------------------------------------------------------------------------------
 THIRD-PARTY COMPONENTS
 --------------------------------------------------------------------------------
 
 This licence covers only the original BtP Oven source in this repository.
-It does not apply to anything listed below, which keeps its own terms:
+Everything below keeps its own terms, and those terms always win over this
+licence for that component:
 
-  JUCE 9          AGPLv3 or a commercial JUCE licence.
-                  This project is distributed under the free JUCE Starter
-                  tier (revenue under USD 20,000/year).
-  ACE-Step 1.5    Apache-2.0 code, MIT weights.
+  JUCE 9          AGPLv3 or a commercial JUCE licence. This project is
+                  distributed under a paid JUCE Indie licence, which permits
+                  closed-source distribution up to USD 300,000/year.
+  ACE-Step 1.5    Apache-2.0 code, MIT model weights.
   ggml            MIT.
   yyjson          MIT.
   Demucs          MIT code (facebookresearch), MIT weights.
@@ -49,15 +85,12 @@ It does not apply to anything listed below, which keeps its own terms:
   RVC             MIT. Voice models are NOT covered and are never bundled.
   ContentVec      MIT.
   RMVPE           MIT.
-  RAVE            CC-BY-NC 4.0, code AND weights. NON-COMMERCIAL.
+  RAVE            CC-BY-NC 4.0, code AND weights. NON-COMMERCIAL. Present
+                  only in the personal/free build.
 
 Full inventory, obligations and audit notes:  Packaging/THIRD-PARTY.txt
 Plain-English rules for selling music:        Packaging/LICENSING.txt
 Actual licence texts:                         Packaging/LICENSES/
-
-Because RAVE is non-commercial, this release may not be sold in any form
-that includes the RAVE engine or its model files. See Packaging/LICENSING.txt
-section B before building anything commercial.
 
 --------------------------------------------------------------------------------
 NO WARRANTY

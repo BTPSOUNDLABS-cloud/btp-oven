@@ -141,22 +141,35 @@ COMPONENT INVENTORY
     Used for:  timbre mutation / variant generation, PQMF reference
     Code:      CC-BY-NC 4.0
     Weights:   CC-BY-NC 4.0 (Intelligent Instruments Lab voice_multi)
-    Commercial use: NO.
-    Obligations: attribution to the authors; non-commercial only.
+    Commercial use: NO for the models themselves.
+    Obligations: attribution to both ACIDS/IRCAM and IIL; cite the
+                 model DOI; non-commercial distribution of the models.
     Licence files: LICENSES/RAVE-LICENSE-CC-BY-NC-4.0.txt
                    LICENSES/CC-BY-NC-4.0.txt
     Upstream:  https://github.com/acids-ircam/RAVE
-               https://github.com/Intelligent-Instruments-Lab/rave-voice-multi
+    Weights:   https://huggingface.co/Intelligent-Instruments-Lab/rave-models
+               checkpoints/voice_multi_b2048_r48000/
+    Citation:  Intelligent Instruments Lab. rave-models. 2023.
+               doi:10.57967/hf/1235
 
     WHAT THIS MEANS
       * Free / non-commercial use of the plugin with RAVE is allowed.
       * Selling the plugin with these RAVE files is NOT allowed.
-      * Audio produced through the RAVE engine is a gray area under
-        an NC model licence. Treat it as non-commercial unless you
-        have written permission.
+      * The model authors describe their own boundary as: you may do
+        "just about anything with them except sell the models
+        themselves as part of a product". Audio you make with the
+        models is therefore not what the licence targets - the models
+        are. See LICENSING.txt for the practical rule used in this
+        package.
       * To make a commercial build: remove the RAVE engine and model
         files, or replace them with a model you trained yourself or
         licensed commercially. The rest of the plugin is unaffected.
+        See BUILD-VARIANTS.txt.
+
+    COMMERCIAL BUILDS
+      Packages built with -NoRave contain no RAVE code and no RAVE
+      model files. If this copy has a NO-RAVE.txt in its root, this
+      entire entry does not apply to it.
 
 12. Audio you supply
     Training audio, voice models, loops and samples are yours (or
@@ -169,6 +182,9 @@ BUNDLED VS OPTIONAL
 
 Bundled in the default "Core" release:
   Demucs model, RVC ContentVec, RMVPE, RAVE encoder/decoder/PQMF.
+
+Bundled in the commercial (-NoRave) release:
+  Demucs model, RVC ContentVec, RMVPE. No RAVE files.
 
 Downloaded only on request:
   ACE-Step turbo, Qwen embedding, VAE, 4B LM (Apache-2.0 code,
@@ -184,8 +200,10 @@ ATTRIBUTION TEXT (paste this where you credit tools)
 
   Built with JUCE, ACE-Step 1.5, ggml, Demucs/demucs.cpp, Eigen,
   ONNX Runtime and RVC. RAVE variant generation uses the RAVE
-  framework and voice_multi weights by Intelligent Instruments Lab,
-  licensed CC-BY-NC 4.0.
+  framework by ACIDS/IRCAM and voice_multi weights by the
+  Intelligent Instruments Lab, both CC-BY-NC 4.0.
+  https://huggingface.co/Intelligent-Instruments-Lab/rave-models
+  doi:10.57967/hf/1235
 
 
 ----------------------------------------------------------------
@@ -213,6 +231,8 @@ were corrected during the audit:
     Earlier assumption: GPLv3 or commercial.
     Reality: JUCE 9 is AGPLv3 or a JUCE licence tier. The free tier
     is Starter (revenue up to $20,000); Indie and Pro are paid.
+    This project is licensed under JUCE Indie, which covers closed-
+    source distribution up to USD 300,000/year.
 
 Why the confusion happens: a repository can have MIT code and
 non-MIT weights, and search results / chat assistants usually quote

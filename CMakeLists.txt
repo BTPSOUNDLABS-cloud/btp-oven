@@ -219,6 +219,11 @@ set(ONNX_DIR "D:/Dev/onnxruntime/onnxruntime-win-x64-1.31.1" CACHE PATH
 set(RVC_DIR "D:/Dev/rvc-models" CACHE PATH "RVC ONNX model folder")
 option(BTP_ENABLE_RVC "Compile the built-in RVC voice converter" ON)
 
+# The RAVE variant engine and its voice_multi weights are CC-BY-NC 4.0.
+# Keep it ON for personal / free builds. Build with -DBTP_ENABLE_RAVE=OFF
+# to ship a commercial build that contains no non-commercial code or models.
+option(BTP_ENABLE_RAVE "Compile the built-in RAVE variant engine (CC-BY-NC models)" ON)
+
 if(BTP_ENABLE_RVC AND EXISTS "${ONNX_DIR}/include/onnxruntime_cxx_api.h")
     message(STATUS "BtP Oven: building in-process RVC (onnxruntime)")
 
@@ -237,7 +242,15 @@ if(BTP_ENABLE_RVC AND EXISTS "${ONNX_DIR}/include/onnxruntime_cxx_api.h")
     # --- plugin: link onnxruntime + RVC engine ---------------------------------
     target_include_directories(BtPOven PRIVATE "${ONNX_DIR}/include")
     target_link_libraries(BtPOven PRIVATE "${ONNX_DIR}/lib/onnxruntime.lib")
-    target_compile_definitions(BtPOven PRIVATE BTP_HAS_RVC=1 BTP_HAS_RAVE=1)
+    target_compile_definitions(BtPOven PRIVATE BTP_HAS_RVC=1)
+
+    if(BTP_ENABLE_RAVE)
+        target_compile_definitions(BtPOven PRIVATE BTP_HAS_RAVE=1)
+        message(STATUS "BtP Oven: RAVE variant engine ENABLED (CC-BY-NC models, non-commercial)")
+    else()
+        target_compile_definitions(BtPOven PRIVATE BTP_HAS_RAVE=0)
+        message(STATUS "BtP Oven: RAVE variant engine DISABLED (commercial build)")
+    endif()
 
     add_custom_command(TARGET BtPOven_VST3 POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -283,6 +296,7 @@ if(BTP_ENABLE_RVC AND EXISTS "${ONNX_DIR}/include/onnxruntime_cxx_api.h")
             $<TARGET_FILE_DIR:btp-rvc-smoke>)
 
     # --- RAVE smoke test ------------------------------------------------------
+    if(BTP_ENABLE_RAVE)
     add_executable(btp-rave-smoke
         Test/RaveSmoke.cpp
         Source/RaveEngine.cpp
@@ -313,8 +327,10 @@ if(BTP_ENABLE_RVC AND EXISTS "${ONNX_DIR}/include/onnxruntime_cxx_api.h")
             "${ONNX_DIR}/lib/onnxruntime.dll"
             "${ONNX_DIR}/lib/onnxruntime_providers_shared.dll"
             $<TARGET_FILE_DIR:btp-rave-smoke>)
+    endif()
 else()
     message(STATUS "BtP Oven: RVC disabled (ONNX_DIR not found)")
+    target_compile_definitions(BtPOven PRIVATE BTP_HAS_RVC=0 BTP_HAS_RAVE=0)
 endif()
 
 target_compile_definitions(BtPOven PRIVATE

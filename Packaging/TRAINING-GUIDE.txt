@@ -237,10 +237,26 @@ The plugin uses two ONNX files plus a filter bank:
   Models\RAVE\rave_decoder.onnx
   Models\RAVE\pqmf_hk.bin
 
-These were exported from the RAVE "voice_multi" checkpoint.  To
-build a new RAVE model from your own audio you need the training
-toolchain (acids-rave + the victor-shepardson RAVE fork), which is a
-heavy GPU job.
+These were exported from the RAVE "voice_multi" checkpoint, published
+by the Intelligent Instruments Lab:
+
+  https://huggingface.co/Intelligent-Instruments-Lab/rave-models
+  checkpoints/voice_multi_b2048_r48000/config.gin
+  checkpoints/voice_multi_b2048_r48000/version_0/checkpoints/last.ckpt
+
+  Licence: CC-BY-NC 4.0
+  Cite:    Intelligent Instruments Lab. rave-models. 2023.
+           doi:10.57967/hf/1235
+
+Because those weights are non-commercial, the SHOTS -> MUTATE row is
+compiled out of the commercial build. If your copy of the plugin has
+no MUTATE button, this whole section is informational only - the
+plugin was built with -DBTP_ENABLE_RAVE=OFF and contains no RAVE
+code or models. See BUILD-VARIANTS.txt for both build flavours and
+how to put RAVE back into a personal build.
+
+To build a new RAVE model from your own audio you need the training
+toolchain (acids-rave + a RAVE fork), which is a heavy GPU job.
 
 The export helper is in Tools\rave_export.py.  It expects:
   * a RAVE .ckpt checkpoint
@@ -341,9 +357,15 @@ documentation + recipes so you always know where audio belongs.
   * Train only on audio you own or that is explicitly royalty-free.
   * Do not clone a person's voice without permission.
   * Do not redistribute a voice model you do not have rights to.
-  * RAVE "voice_multi" weights are CC-BY-NC 4.0: free/non-commercial
-    use, attribution to Intelligent Instruments Lab required.
-  * This release is free.  Do not sell it or the models.
+  * RAVE "voice_multi" weights are CC-BY-NC 4.0. Credit the
+    Intelligent Instruments Lab and cite doi:10.57967/hf/1235 when
+    you use them.
+  * Selling music made with a RAVE variant is permitted by the model
+    authors - they draw the line at selling the models themselves as
+    part of a product. Shipping the models inside a paid plugin is
+    what is not allowed. See LICENSING.txt.
+  * Selling the plugin itself is only allowed for a build compiled
+    without RAVE (-DBTP_ENABLE_RAVE=OFF). See BUILD-VARIANTS.txt.
 
 If you are unsure about a sample, do not put it in a training
 folder.  Keep a "reference" folder outside Training\ for things you

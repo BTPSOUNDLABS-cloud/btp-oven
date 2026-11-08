@@ -17,8 +17,8 @@ have a lawyer read THIRD-PARTY.txt.
 A. SELLING MUSIC MADE WITH THE PLUGIN
 ================================================================
 
-Short answer: YES for normal beat-making, with two exceptions
-(RAVE variants and other people's voices).
+Short answer: YES for normal beat-making, with one exception
+(other people's voices). RAVE output is covered separately below.
 
   FEATURE                        SELL THE RESULT?
   ------------------------------------------------------------
@@ -29,14 +29,38 @@ Short answer: YES for normal beat-making, with two exceptions
   RVC voice conversion            YES, if the voice is yours or
                                   you have permission
   Auto-tune / FX / mastering      YES
-  RAVE MUTATE variants            NO (non-commercial licence)
+  RAVE MUTATE variants            YES, per the model authors -
+                                  see the note below
 
-Why the RAVE exception: the RAVE framework and the bundled
-voice_multi weights are CC-BY-NC 4.0 - "NC" means non-commercial.
-Free use with credit is fine. Selling a beat that contains a RAVE
-variant is a gray area at best, so treat it as not allowed. If you
-love the mutation sound, the clean path is to train your own small
-timbre model (or license one commercially) and plug that in instead.
+RAVE: what the authors actually say
+  The RAVE framework and the voice_multi weights are CC-BY-NC 4.0.
+  The Intelligent Instruments Lab, who trained voice_multi, describe
+  the limit in their own release notes:
+
+    "All our RAVE models inherit the Creative Commons Noncommercial
+     license required by the ACIDS software, meaning you can do just
+     about anything with them except sell the models themselves as
+     part of a product."
+
+  That draws the line at the models, not at music made with them.
+  So selling a beat that contains a RAVE variant is consistent with
+  the authors' stated position - what you may not do is ship the
+  models inside a product you sell.
+
+  Practical rule used by this project:
+    * making and selling music with RAVE ............ fine
+    * shipping RAVE models in a paid plugin ......... not fine
+    * shipping RAVE models in a free plugin ......... fine, with
+                                                     attribution
+
+  If you want zero ambiguity, email the lab and keep the reply:
+    thormagnusson@hi.is
+    https://huggingface.co/Intelligent-Instruments-Lab/rave-models
+
+  Credit them whenever you use the models:
+    Intelligent Instruments Lab. rave-models. 2023.
+    https://huggingface.co/Intelligent-Instruments-Lab/rave-models
+    doi:10.57967/hf/1235
 
 What about the AI VOCALS specifically?
   * The audio itself is yours to use. RVC and ACE-Step do not claim
@@ -86,48 +110,51 @@ licence, though.
 B. SELLING OR SHARING THE PLUGIN
 ================================================================
 
-AS PACKAGED TODAY: free / non-commercial.
+AS PACKAGED TODAY: two builds, two rules.
 
-Two reasons:
+  PERSONAL / FREE BUILD     RAVE included, free to use and share
+  COMMERCIAL BUILD          RAVE removed, may be sold
+                            (-DBTP_ENABLE_RAVE=OFF, -NoRave)
 
-  1. RAVE (code + voice_multi weights) is CC-BY-NC 4.0.
-     Non-commercial only. This is the blocker for selling.
+Two things decide which is which:
+
+  1. RAVE (code + voice_multi weights) is CC-BY-NC 4.0. That is the
+     only blocker for selling, and it is a build-time switch.
 
   2. JUCE 9 is licensed under AGPLv3 or a JUCE tier. The free tier
-     (Starter) only covers revenue up to $20,000/year; above that
-     you need Indie ($800 perpetual, up to $300k) or Pro ($3,500
-     perpetual, unlimited). If you distribute under AGPLv3 instead,
-     you must publish the complete corresponding source.
+     (Starter) covers revenue up to $20,000/year; Indie ($800
+     perpetual) covers up to $300k; Pro ($3,500 perpetual) is
+     unlimited. If you distribute under AGPLv3 instead, you must
+     publish the complete corresponding source.
 
-     For a free release by an individual under $20k, Starter costs
-     nothing and does not force you to publish the source.
+     Indie is a commercial licence: it permits selling closed-source
+     binaries up to $300k/year. A monthly subscription and the
+     perpetual buy give the same rights - the perpetual just stops
+     the monthly payment.
 
 WHAT YOU CAN DO RIGHT NOW
   * Use it yourself, for free, including on music you sell.
-  * Give it to friends for free.
-  * Publish it for free with this file, THIRD-PARTY.txt and the
-    LICENSES folder. If you are under $20k revenue, register the
-    free JUCE Starter tier. If you prefer AGPLv3, also publish the
-    source.
-  * Put it on a free download page with the attribution text from
-    THIRD-PARTY.txt.
+  * Give the personal build to friends for free.
+  * Publish the personal build for free with this file,
+    THIRD-PARTY.txt and the LICENSES folder.
+  * Sell a commercial build (no RAVE) under an Indie licence.
 
 WHAT YOU CANNOT DO AS PACKAGED
-  * Sell it while it contains the CC-BY-NC RAVE engine.
-  * Put it behind a paywall or a paid tier.
-  * Ship it in a commercial bundle.
+  * Sell the personal build while it contains the CC-BY-NC RAVE
+    engine.
+  * Ship RAVE models inside any paid product.
   * Relicense it as closed source without a JUCE licence.
 
 TO MAKE A SELLABLE BUILD
-  1. Pick the JUCE tier that fits your revenue: Starter (free,
-     under $20k), Indie ($800 perpetual, under $300k), or Pro
-     ($3,500 perpetual). One seat per developer. Do not mix tiers
-     in the same product line.
-  2. Remove the RAVE engine and its model files, or replace them with
-     a model you trained yourself or licensed for commercial use.
+  1. Keep your JUCE licence active. Indie covers up to $300k.
+  2. Configure with -DBTP_ENABLE_RAVE=OFF and package with -NoRave.
   3. Keep every MIT / Apache / MPL notice and the LICENSES folder.
   4. Keep the ACE-Step NOTICE and state any files you modified.
-  5. Re-audit THIRD-PARTY.txt. Anything marked NC must be gone.
+  5. Re-audit THIRD-PARTY.txt. Anything marked NC must be gone -
+     or, if the NO-RAVE.txt marker is present, confirm the entry is
+     marked as not applicable.
+
+Step-by-step build commands are in BUILD-VARIANTS.txt.
 
 The rest of the stack - ACE-Step (Apache-2.0 code, MIT weights),
 ggml, Demucs, Eigen, ONNX Runtime, RVC, ContentVec, RMVPE - is
@@ -136,16 +163,16 @@ compatible with a commercial product as long as notices are kept.
 NOTE ON THE JUCE REVENUE LIMIT
   It is based on your previous 12 months and, for an individual,
   covers revenue from your use of the Framework from all sources.
-  If your beat sales and plugin sales together approach $20k, the
-  safe move is to upgrade to Indie. If the boundary matters to you,
-  ask sales@juce.com - they will not give legal advice, but they can
-  confirm how the tier applies.
+  Beat sales and plugin sales both count. Under $20k, Starter is
+  enough; between $20k and $300k, Indie covers you; above that,
+  Pro. If the boundary matters, ask sales@juce.com - they will not
+  give legal advice, but they can confirm how the tier applies.
 
 DO YOU NEED TO BUY NOW?
-  No. You are not distributing the plugin today, and the free
-  Starter tier covers you until $20k. Register Starter (free) so a
-  licence is on record, and only buy Indie/Pro when you actually
-  cross the threshold or start selling the plugin.
+  If you already run Indie, you are covered for selling. The
+  perpetual buy is a cash-flow decision, not a permission one.
+  Do not cancel the subscription until the perpetual licence is
+  issued, or you will have a gap while still distributing builds.
 
 
 ================================================================

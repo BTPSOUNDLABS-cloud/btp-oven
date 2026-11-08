@@ -1,0 +1,169 @@
+================================================================
+  BtP OVEN  -  BUILD VARIANTS
+================================================================
+
+BtP Oven builds in two flavours from one source tree. The only
+difference is whether the RAVE variant engine is compiled in and
+whether its model files are shipped.
+
+  PERSONAL / FREE BUILD     RAVE included
+  COMMERCIAL BUILD          RAVE removed
+
+Everything else is identical: ACE-Step, Demucs, RVC, auto-tune,
+Cook / Timing / Pitch / Filters / FX and all three loop lanes.
+
+
+----------------------------------------------------------------
+1. WHY THERE ARE TWO BUILDS
+----------------------------------------------------------------
+
+The RAVE framework and the voice_multi weights are licensed
+CC-BY-NC 4.0 - non-commercial. That makes a build containing them
+unsuitable to sell, no matter what else is in it.
+
+The Intelligent Instruments Lab, who trained voice_multi, describe
+the boundary themselves:
+
+  "All our RAVE models inherit the Creative Commons Noncommercial
+   license required by the ACIDS software, meaning you can do just
+   about anything with them except sell the models themselves as
+   part of a product."
+
+So: using RAVE to make music is "just about anything"; selling a
+product that contains the models is the exclusion.
+
+  * Personal use, free builds ............ keep RAVE, no problem
+  * Selling the plugin ................... build without RAVE
+  * Selling music made with RAVE ......... permitted by the authors'
+                                           stated position; see
+                                           LICENSING.txt
+
+Model source:  https://huggingface.co/Intelligent-Instruments-Lab/rave-models
+Licence:       CC-BY-NC 4.0
+Citation:      doi:10.57967/hf/1235
+
+
+----------------------------------------------------------------
+2. BUILDING YOUR PERSONAL COPY (RAVE ON)
+----------------------------------------------------------------
+
+This is the default. Nothing extra to pass:
+
+  cmake -S . -B build -G "Visual Studio 18 2026" -A x64 ^
+        -DJUCE_DIR="C:/JUCE" ^
+        -DACESTEP_DIR="D:/Dev/ACE-Step-1.5/acestep.vst3" ^
+        -DDEMUCS_DIR="D:/Dev/demucs.cpp" ^
+        -DONNX_DIR="D:/Dev/onnxruntime/onnxruntime-win-x64-1.31.1"
+
+  cmake --build build --config Release --parallel 8
+
+Expect the configure step to print:
+
+  BtP Oven: RAVE variant engine ENABLED (CC-BY-NC models, non-commercial)
+
+
+----------------------------------------------------------------
+3. BUILDING THE SHIPPING COPY (RAVE OFF)
+----------------------------------------------------------------
+
+Add one flag:
+
+  cmake -S . -B build-commercial -G "Visual Studio 18 2026" -A x64 ^
+        -DJUCE_DIR="C:/JUCE" ^
+        -DACESTEP_DIR="D:/Dev/ACE-Step-1.5/acestep.vst3" ^
+        -DDEMUCS_DIR="D:/Dev/demucs.cpp" ^
+        -DONNX_DIR="D:/Dev/onnxruntime/onnxruntime-win-x64-1.31.1" ^
+        -DBTP_ENABLE_RAVE=OFF
+
+  cmake --build build-commercial --config Release --parallel 8
+
+Expect:
+
+  BtP Oven: RAVE variant engine DISABLED (commercial build)
+
+Then package it without the models:
+
+  powershell -ExecutionPolicy Bypass -File Packaging\Package-BtPOven.ps1 ^
+             -Models Core -NoRave -BuildDir build-commercial -Zip
+
+That produces a package containing:
+
+  * no RAVE code (compiled with BTP_HAS_RAVE=0)
+  * no Models\RAVE folder
+  * a NO-RAVE.txt marker so the installer skips RAVE checks
+  * the SHOTS page without MUTATE / SAVE VAR / TRAIN VAR
+
+Use a separate build directory (build-commercial) so you do not have
+to reconfigure your personal build back and forth.
+
+
+----------------------------------------------------------------
+4. ADDING RAVE BACK TO A BUILD
+----------------------------------------------------------------
+
+Four things have to be true:
+
+  1. Compile with BTP_ENABLE_RAVE=ON (the default).
+
+  2. Ship the three model files in Models\RAVE\ :
+
+       rave_encoder.onnx
+       rave_decoder.onnx
+       pqmf_hk.bin
+
+     They are produced from a RAVE checkpoint with
+     Tools\rave_export.py. See TRAINING-GUIDE.txt section 4.
+
+  3. Do not package with -NoRave.
+
+  4. Make sure the build is not one you intend to sell.
+
+If you only want RAVE on your own machine, copy the three files
+into:
+
+  %APPDATA%\BtP Oven\Models\RAVE\
+
+The plugin checks that folder first, so a RAVE-enabled build picks
+them up with no rebuild.
+
+Current source of the weights:
+
+  https://huggingface.co/Intelligent-Instruments-Lab/rave-models
+  checkpoints/voice_multi_b2048_r48000/version_0/checkpoints/last.ckpt
+  checkpoints/voice_multi_b2048_r48000/config.gin
+
+Export command:
+
+  python Tools\rave_export.py ^
+      --checkpoint <path>\last.ckpt ^
+      --config     <path>\config.gin ^
+      --out        "%APPDATA%\BtP Oven\Models\RAVE"
+
+
+----------------------------------------------------------------
+5. CHANGING THE SWITCH LATER
+----------------------------------------------------------------
+
+BTP_ENABLE_RAVE is a CMake cache variable. To flip an existing
+build directory:
+
+  cmake -S . -B build -DBTP_ENABLE_RAVE=OFF
+  cmake --build build --config Release --parallel 8
+
+To confirm what a binary contains, run the standalone and open
+SHOTS: a commercial build has no MUTATE row at all.
+
+
+----------------------------------------------------------------
+6. CHECKLIST BEFORE SELLING A BUILD
+----------------------------------------------------------------
+
+  [ ] Configured with -DBTP_ENABLE_RAVE=OFF
+  [ ] No Models\RAVE folder in the package
+  [ ] NO-RAVE.txt present in the package
+  [ ] Package built with -NoRave
+  [ ] JUCE licence active (Indie covers up to USD 300k/year)
+  [ ] THIRD-PARTY.txt still matches what actually shipped
+  [ ] No voice models bundled without consent
+
+================================================================

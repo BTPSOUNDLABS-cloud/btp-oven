@@ -169,6 +169,11 @@ One-shot sample factory.
   TRAIN       copy it to Training\OneShots\<category>
 
 RAVE VARIANTS (bottom of the SHOTS page):
+
+  NOTE: this row is only present in builds that include RAVE. The
+  commercial edition is compiled without it, so MUTATE / SAVE VAR /
+  TRAIN VAR simply do not appear. See BUILD-VARIANTS.txt.
+
   VAR         mutation amount (0 = none, 1 = wild)
   MUTATE      run the last one-shot through RAVE
   SAVE VAR    save the variant into the library
@@ -301,7 +306,8 @@ Nothing records in the FX recorder
 ----------------------------------------------------------------
 
 Full details are in LICENSING.txt (plain English), THIRD-PARTY.txt
-(the inventory) and LICENSES\ (the actual licence texts).
+(the inventory) and LICENSES\ (the actual licence texts). The terms
+that cover the plugin itself are in LICENSE-BtPOven.txt.
 
   JUCE 9               - AGPLv3 OR commercial JUCE licence
   ACE-Step 1.5         - Apache-2.0 code, MIT model weights
@@ -315,22 +321,27 @@ Full details are in LICENSING.txt (plain English), THIRD-PARTY.txt
   RMVPE                - MIT (optional pitch tracker)
   RAVE (acids-ircam)   - CC-BY-NC 4.0  (code AND weights)
   RAVE voice_multi     - CC-BY-NC 4.0 (Intelligent Instruments Lab)
-                         non-commercial, attribution required
+                         https://huggingface.co/Intelligent-Instruments-Lab/rave-models
+                         doi:10.57967/hf/1235
 
 WHAT YOU CAN DO
   * Sell beats, hooks and songs you make with the plugin: yes.
-  * Sell a beat that contains a RAVE MUTATE variant: no - the RAVE
-    licence is non-commercial.
-  * Give the plugin away for free: yes, with attribution.
-  * Sell the plugin as packaged: no. It needs a commercial JUCE
-    licence and the non-commercial RAVE parts replaced or removed.
+  * Sell a beat that contains a RAVE MUTATE variant: yes. The model
+    authors say you can do "just about anything" with the models
+    except sell the models themselves. Credit IIL + the DOI.
+  * Give the plugin away for free, with RAVE: yes, with attribution.
+  * Sell the plugin: yes, but only the build made without RAVE.
+    Build with -DBTP_ENABLE_RAVE=OFF and package with -NoRave - see
+    BUILD-VARIANTS.txt. Your JUCE licence covers the rest.
+
+TWO BUILDS
+  Personal / free   RAVE included. Use it, share it, don't sell it.
+  Commercial        No RAVE code, no RAVE models. Sell this one.
 
 VOICE MODELS are not bundled by default.  Only use voices you have
 the right to use and redistribute.  Never clone a voice without the
 speaker's permission.  If you train a voice, make sure the source
 audio is yours or royalty-free.
-
-This release is free.  Do not sell it or the bundled models.
 
 
 ----------------------------------------------------------------

@@ -25,6 +25,13 @@ bundled with, BtP Oven. The plain-English summary is in
   RAVE-LICENSE-CC-BY-NC-4.0.txt     RAVE upstream notice
   CC-BY-NC-4.0.txt                  RAVE code + voice_multi weights
 
+RAVE note: the RAVE files only apply to builds that include the RAVE
+variant engine. A commercial build (compiled with
+-DBTP_ENABLE_RAVE=OFF and packaged with -NoRave) contains no RAVE
+code or weights, so those entries simply do not apply to it. The
+files are kept here so the folder is identical in both packages.
+See ..\BUILD-VARIANTS.txt.
+
 JUCE note: JUCE itself vendors further third-party code. The full
 SPDX inventory ships in the JUCE repository as JUCE.spdx.json.
 

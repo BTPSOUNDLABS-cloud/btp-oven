@@ -141,6 +141,7 @@ else {
 # ---------------------------------------------------------------- folders
 Say ''
 Say '[3/5] Creating Training / Models folders'
+$commercialEdition = Test-Path (Join-Path $here 'NO-RAVE.txt')
 $dirs = @(
     $modelsDir,
     (Join-Path $modelsDir 'ACE-Step'),
@@ -148,7 +149,6 @@ $dirs = @(
     (Join-Path $modelsDir 'RVC\hubert'),
     (Join-Path $modelsDir 'RVC\voices'),
     (Join-Path $modelsDir 'RVC\rmvpe'),
-    (Join-Path $modelsDir 'RAVE'),
     (Join-Path $trainingDir 'Vocals'),
     (Join-Path $trainingDir 'Loops'),
     (Join-Path $trainingDir 'Variants'),
@@ -162,8 +162,10 @@ $dirs = @(
 foreach ($cat in @('FX','Impacts','Risers','Pads','Vocal Chops','Sirens','Phones','Cash','Ambience','Synth One Shots')) {
     $dirs += (Join-Path $trainingDir "OneShots\$cat")
 }
+if (-not $commercialEdition) { $dirs += (Join-Path $modelsDir 'RAVE') }
 foreach ($d in $dirs) { New-Item -ItemType Directory -Force -Path $d | Out-Null }
 Ok 'folders ready'
+if ($commercialEdition) { Ok 'commercial edition: RAVE variant engine not installed' }
 
 # copy the example manifests next to the training data
 $manifestSrc = Join-Path $here 'manifests'
@@ -175,7 +177,7 @@ if (Test-Path $manifestSrc) {
 # legal notices stay with the install
 $legalDir = Join-Path $appData 'Legal'
 New-Item -ItemType Directory -Force -Path $legalDir | Out-Null
-foreach ($legal in @('LICENSING.txt','THIRD-PARTY.txt')) {
+foreach ($legal in @('LICENSE-BtPOven.txt','LICENSING.txt','THIRD-PARTY.txt','BUILD-VARIANTS.txt')) {
     $src = Join-Path $here $legal
     if (Test-Path $src) { Copy-Item $src $legalDir -Force }
 }
@@ -228,9 +230,11 @@ if ($NoModels) {
         'ACE-Step\vae-BF16.gguf' = 'AI GEN / SHOTS'
         'Demucs\ggml-model-htdemucs-4s-f16.bin' = 'STEM'
         'RVC\hubert\vec-768-layer-12.onnx' = 'VOICE'
-        'RAVE\rave_encoder.onnx' = 'SHOTS -> MUTATE'
-        'RAVE\rave_decoder.onnx' = 'SHOTS -> MUTATE'
-        'RAVE\pqmf_hk.bin' = 'SHOTS -> MUTATE'
+    }
+    if (-not $commercialEdition) {
+        $need['RAVE\rave_encoder.onnx'] = 'SHOTS -> MUTATE'
+        $need['RAVE\rave_decoder.onnx'] = 'SHOTS -> MUTATE'
+        $need['RAVE\pqmf_hk.bin'] = 'SHOTS -> MUTATE'
     }
     $missing = @()
     foreach ($k in $need.Keys) {

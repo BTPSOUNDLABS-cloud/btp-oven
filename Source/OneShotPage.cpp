@@ -148,7 +148,8 @@ OneShotPage::OneShotPage (BtPOvenAudioProcessor& p)
                                                : "CAPTURE FAILED");
                });
 
-    // RAVE variant section
+    // RAVE variant section (CC-BY-NC; omitted from commercial builds)
+   #if BTP_HAS_RAVE
     variationSlider = addControlKnob ("VAR", { 130.0f, 404.0f, 60.0f, 56.0f });
     variationSlider->setRange (0.0, 1.0, 0.05);
     variationSlider->setValue (0.4);
@@ -171,6 +172,7 @@ OneShotPage::OneShotPage (BtPOvenAudioProcessor& p)
                    processor.setStatusMessage (f.existsAsFile() ? "CAPTURED VARIANT" : "CAPTURE FAILED");
                });
     addAction ("TO C", { 624.0f, 410.0f, 62.0f, 30.0f }, [this] { processor.sendRaveToLoop (2); });
+   #endif
 
     // Library panel
     addAction ("CHOOSE FOLDER", { 720.0f, 40.0f, 150.0f, 28.0f }, [this] { chooseLibraryRoot(); });
@@ -322,14 +324,13 @@ void OneShotPage::saveLastOneShot()
         writer->flush();
     }
 
-    out->flush();
-
     refreshLibrary();
     processor.setStatusMessage ("SAVED  " + file.getFileName() + "  ->  " + cat);
 }
 
 void OneShotPage::saveRaveVariant()
 {
+   #if BTP_HAS_RAVE
     if (! processor.hasRaveResult())
     {
         processor.setStatusMessage ("NO VARIANT TO SAVE YET");
@@ -365,10 +366,9 @@ void OneShotPage::saveRaveVariant()
         writer->flush();
     }
 
-    out->flush();
-
     refreshLibrary();
     processor.setStatusMessage ("SAVED VARIANT  " + file.getFileName());
+   #endif
 }
 
 void OneShotPage::chooseLibraryRoot()
@@ -519,6 +519,7 @@ void OneShotPage::paint (juce::Graphics& g)
     }
 
     // Variant waveform (RAVE)
+   #if BTP_HAS_RAVE
     g.setColour (juce::Colour (0xff060906).withAlpha (0.75f));
     g.fillRoundedRectangle (variantWaveArea, 3.0f * sc);
     g.setColour (juce::Colour (0xff262a30));
@@ -532,6 +533,7 @@ void OneShotPage::paint (juce::Graphics& g)
         g.setFont (juce::Font (juce::FontOptions (juce::jmax (6.5f, 8.0f * sc), juce::Font::bold)));
         g.drawText ("RAVE VARIANT", variantWaveArea.toNearestInt(), juce::Justification::centred, false);
     }
+   #endif
 
     // Engine state hint
     const auto state = engine.getState();
@@ -656,7 +658,9 @@ void OneShotPage::timerCallback()
 
     repaint (generatePanel.toNearestInt());
     repaint (previewWaveArea.toNearestInt());
+   #if BTP_HAS_RAVE
     repaint (variantWaveArea.toNearestInt());
+   #endif
 }
 
 //==============================================================================

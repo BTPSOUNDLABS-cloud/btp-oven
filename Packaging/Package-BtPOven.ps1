@@ -22,10 +22,23 @@
         powershell ... -Models All -Zip
         powershell ... -Models None -Version "1.0.1"
 
+        Commercial build (no RAVE, no non-commercial models):
+        powershell ... -Models Core -NoRave -Zip -BuildDir build-commercial
+
     MODELS:
         None   no model files in the package (installer can download them)
         Core   Demucs + RVC hubert + RAVE exports   (~0.9 GB)
         All    Core + ACE-Step GGUF files           (~8.6 GB)
+
+    -NoRave
+        Omits the RAVE encoder/decoder/PQMF models and marks the package
+        as a commercial edition. Pair it with a plugin built using
+        -DBTP_ENABLE_RAVE=OFF. The installed copy then contains no
+        CC-BY-NC code or weights.
+
+    -BuildDir
+        Which build tree to package from. Default 'build'. Use
+        -BuildDir build-commercial for the no-RAVE build.
 
     NOTE: voices are never bundled by default (licensing). Use -IncludeVoices
           if you have redistribution rights for the .onnx files in
@@ -37,8 +50,10 @@ param(
     [string]$Models = 'Core',
     [string]$Version = '1.0.0',
     [string]$OutDir = '',
+    [string]$BuildDir = 'build',
     [switch]$Zip,
-    [switch]$IncludeVoices
+    [switch]$IncludeVoices,
+    [switch]$NoRave
 )
 
 $ErrorActionPreference = 'Stop'
@@ -78,10 +93,10 @@ New-Item -ItemType Directory -Force -Path $payload | Out-Null
 # ---------------------------------------------------------------- payload
 Say '[1/4] Copying build artifacts'
 
-$vst3 = Join-Path $proj 'build\BtPOven_artefacts\Release\VST3\BtP Oven.vst3'
-$standalone = Join-Path $proj 'build\BtPOven_artefacts\Release\Standalone'
+$vst3 = Join-Path $proj "$BuildDir\BtPOven_artefacts\Release\VST3\BtP Oven.vst3"
+$standalone = Join-Path $proj "$BuildDir\BtPOven_artefacts\Release\Standalone"
 
-if (-not (Test-Path $vst3)) { throw "VST3 not found: $vst3  (build Release first)" }
+if (-not (Test-Path $vst3)) { throw "VST3 not found: $vst3  (build Release first, or pass -BuildDir)" }
 Copy-Item $vst3 $payload -Recurse -Force
 Ok 'VST3 bundle copied'
 
@@ -102,6 +117,7 @@ $files = @(
     'README.txt',
     'TRAINING-GUIDE.txt',
     'NOTEBOOK-LAYOUT.txt',
+    'BUILD-VARIANTS.txt',
     'LICENSING.txt',
     'THIRD-PARTY.txt',
     'models_manifest.json'
@@ -116,6 +132,15 @@ $licSrc = Join-Path $root 'LICENSES'
 if (Test-Path $licSrc) {
     Copy-Item $licSrc (Join-Path $stage 'LICENSES') -Recurse -Force
     Ok 'LICENSES'
+}
+
+# the plugin's own EULA
+$eula = Join-Path $proj 'LICENSE'
+if (Test-Path $eula) {
+    Copy-Item $eula (Join-Path $stage 'LICENSE-BtPOven.txt') -Force
+    Ok 'LICENSE-BtPOven.txt'
+} else {
+    Warn 'missing: LICENSE'
 }
 
 $manifestSrc = Join-Path $root 'manifests'
@@ -150,6 +175,7 @@ $skeleton = @(
 foreach ($cat in @('FX','Impacts','Risers','Pads','Vocal Chops','Sirens','Phones','Cash','Ambience','Synth One Shots')) {
     $skeleton += (Join-Path 'Training\OneShots' $cat)
 }
+if ($NoRave) { $skeleton = $skeleton | Where-Object { $_ -ne 'Models\RAVE' } }
 foreach ($d in $skeleton) { New-Item -ItemType Directory -Force -Path (Join-Path $stage $d) | Out-Null }
 
 # ---------------------------------------------------------------- models
@@ -203,10 +229,30 @@ if ($Models -ne 'None') {
         }
     }
 
-    # RAVE exports
-    Add-Model 'RAVE\rave_encoder.onnx' 'D:\Dev\rave-models\rave_encoder.onnx' $true
-    Add-Model 'RAVE\rave_decoder.onnx' 'D:\Dev\rave-models\rave_decoder.onnx' $true
-    Add-Model 'RAVE\pqmf_hk.bin' 'D:\Dev\rave-models\pqmf_hk.bin' $true
+    # RAVE exports (CC-BY-NC 4.0 - skipped in commercial builds)
+    if (-not $NoRave) {
+        Add-Model 'RAVE\rave_encoder.onnx' 'D:\Dev\rave-models\rave_encoder.onnx' $true
+        Add-Model 'RAVE\rave_decoder.onnx' 'D:\Dev\rave-models\rave_decoder.onnx' $true
+        Add-Model 'RAVE\pqmf_hk.bin' 'D:\Dev\rave-models\pqmf_hk.bin' $true
+    }
+}
+
+if ($NoRave) {
+    $marker = @"
+BtP Oven - commercial edition
+------------------------------
+
+This package was built WITHOUT the RAVE variant engine.
+
+  * SHOTS -> MUTATE / SAVE VAR / TRAIN VAR are not present.
+  * No CC-BY-NC code or model weights are included.
+  * Everything else (ACE-Step, Demucs, RVC, FX, auto-tune) is unaffected.
+
+The matching plugin binary must be compiled with -DBTP_ENABLE_RAVE=OFF.
+See BUILD-VARIANTS.txt for how to add RAVE back to a personal build.
+"@
+    Set-Content -Path (Join-Path $stage 'NO-RAVE.txt') -Value $marker -Encoding UTF8
+    Ok 'commercial edition marker (NO-RAVE.txt)'
 }
 
 if ($Models -eq 'All') {
