@@ -48,33 +48,48 @@ STEP 1 - FIND YOUR PYTHON
 STEP 2 - INSTALL THE GPU BUILD OF TORCH
   Open Command Prompt and run (replace the python path with yours):
 
-    "D:\Dev\ai-gen-app\Retrieval-based-Voice-Conversion-WebUI\.venv\Scripts\python.exe" -m pip install --upgrade --index-url https://download.pytorch.org/whl/cu128 torch torchaudio
+    "D:\Dev\ai-gen-app\Retrieval-based-Voice-Conversion-WebUI\.venv\Scripts\python.exe" -m pip install --index-url https://download.pytorch.org/whl/cu130 "torch==2.11.0+cu130" "torchaudio==2.11.0+cu130"
 
   Notes:
-    * cu128 is the CUDA build that supports RTX 50-series cards.
-      An older cu11x wheel may install but fail with "no kernel
-      image is available for execution on the device".
+    * This is the pair that was tested on an RTX 5070 (Blackwell,
+      compute capability 12.0) with driver 617.x.
+    * torch and torchaudio MUST be the same version.  Do not let pip
+      pick two different versions.
+    * cu128 works too (any recent torch 2.7+ cu128 wheel includes
+      RTX 50-series support).  cu130 is simply the newer stack.
+    * An older cu11x wheel may install but fail with "no kernel image
+      is available for execution on the device".
     * This downloads a few GB.  It does not replace your driver.
     * If pip is missing, run:  python -m ensurepip --upgrade
 
 STEP 3 - CHECK THAT CUDA IS SEEN
   Run:
 
-    "D:\Dev\ai-gen-app\Retrieval-based-Voice-Conversion-WebUI\.venv\Scripts\python.exe" -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
+    "D:\Dev\ai-gen-app\Retrieval-based-Voice-Conversion-WebUI\.venv\Scripts\python.exe" -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0)); print(torch.cuda.get_device_capability(0))"
 
   You want:
-    * a version ending in +cu128 (or newer)
+    * a version ending in +cu130 (or +cu128)
     * True
     * your GPU name
+    * (12, 0) for an RTX 50-series card
 
   If it prints False, the CPU build is still installed.  Re-run
   STEP 2 in the SAME python you just tested.
 
-STEP 4 - RUN THE TRAINER
+STEP 4 - INSTALL THE EXPORT HELPERS
+  The ONNX export needs onnx and onnxsim.  The trainer installs them
+  automatically, but RVC's pinned numpy (1.23.5) needs matching
+  versions, so if the automatic install fails run:
+
+    "D:\Dev\ai-gen-app\Retrieval-based-Voice-Conversion-WebUI\.venv\Scripts\python.exe" -m pip install "onnx==1.14.1" "onnxsim==0.4.36" "numpy==1.23.5"
+
+  (onnx 1.16+ pulls numpy 2, which breaks RVC's numba 0.56.4.)
+
+STEP 5 - RUN THE TRAINER
   See section 3 below.  If CUDA is working you do not need any
   special flag.  The script prints:
 
-    [train] torch : 2.x.x+cu128   cuda: True
+    [train] torch : 2.11.0+cu130   cuda: True
 
   If you only have CPU torch and still want to try, add --allow-cpu.
   It works, but 200 epochs can take many hours instead of ~30-60 min.
@@ -95,6 +110,16 @@ TROUBLESHOOTING
   "No Python at ..."
       A stale virtual environment.  Recreate it, or point
       BTP_RVC_WEBUI at a working RVC-WebUI install.
+
+  "No module named onnxscript"
+      Harmless.  The trainer already forces torch's legacy ONNX
+      exporter, which does not need onnxscript.
+
+  Training stops with a Windows access-violation error
+      This was a bug in RVC's single-GPU path (it always wrapped the
+      networks in DistributedDataParallel).  The shipped trainer
+      already works around it; update Tools\train_voice.py if you
+      are running an older copy.
 
   Missing parselmouth / soundfile / onnx / onnxsim
       The trainer installs them automatically into

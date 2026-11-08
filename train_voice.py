@@ -118,6 +118,9 @@ def subprocess_env(site):
     env = os.environ.copy()
     env["PYTHONPATH"] = os.pathsep.join(parts)
     env["PYTHONIOENCODING"] = "utf-8"
+    # PyTorch 2.6+ defaults torch.load to weights_only=True, which breaks
+    # fairseq's HuBERT checkpoint loader. These are known local checkpoints.
+    env["TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD"] = "1"
     return env
 
 
@@ -222,6 +225,85 @@ def audio_files(folder):
 
 
 # --------------------------------------------------------------------------
+# Training launcher
+#
+# RVC's train.py always wraps both networks in DistributedDataParallel, even
+# for a single GPU. On Windows with current CUDA torch builds the gloo
+# all-reduce inside DDP's backward pass crashes the process with an access
+# violation (0xC0000005) before any checkpoint is written. A single-GPU
+# training run does not need DDP at all, so this launcher imports train.py,
+# swaps DDP for a plain passthrough and calls its run() loop directly.
+#
+# It also shims matplotlib's removed canvas.tostring_rgb() (matplotlib >=3.10)
+# and maps RVC's os._exit(2333333) "training done" code to a normal exit.
+# --------------------------------------------------------------------------
+TRAIN_RUNNER = r'''
+import importlib.util
+import os
+import sys
+
+RVC = os.getcwd()
+sys.path.insert(0, RVC)
+os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
+os.environ.setdefault("MASTER_ADDR", "localhost")
+os.environ.setdefault("MASTER_PORT", str(20000 + (os.getpid() % 35000)))
+
+
+def patch_matplotlib():
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+        if not hasattr(FigureCanvasAgg, "tostring_rgb"):
+            def tostring_rgb(self):
+                import numpy as np
+                buf = np.asarray(self.buffer_rgba())
+                return buf[:, :, :3].tobytes()
+            FigureCanvasAgg.tostring_rgb = tostring_rgb
+    except Exception as exc:
+        print("[train] matplotlib shim skipped:", exc, flush=True)
+
+
+class SingleProcessDDP:
+    """Stand-in for DistributedDataParallel with one GPU."""
+
+    def __init__(self, module, *args, **kwargs):
+        self.module = module
+
+    def __getattr__(self, name):
+        return getattr(self.module, name)
+
+    def __call__(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
+
+
+def main():
+    sys.argv = ["train.py"] + sys.argv[1:]
+    patch_matplotlib()
+
+    # RVC exits with 2333333 to mean "training finished normally".
+    real_exit = os._exit
+    def clean_exit(code=0):
+        real_exit(0 if code == 2333333 else code)
+    os._exit = clean_exit
+
+    path = os.path.join(RVC, "infer", "modules", "train", "train.py")
+    spec = importlib.util.spec_from_file_location("btp_rvc_train", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["btp_rvc_train"] = mod
+    spec.loader.exec_module(mod)
+
+    mod.DDP = SingleProcessDDP
+    print("[train] single-GPU mode (DDP disabled)", flush=True)
+    mod.run(0, 1, mod.hps, mod.utils.get_logger(mod.hps.model_dir))
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+# --------------------------------------------------------------------------
 # Main
 # --------------------------------------------------------------------------
 def main():
@@ -245,6 +327,10 @@ def main():
     log("============================================================")
     log("  BtP Oven - RVC voice trainer")
     log("============================================================")
+
+    # PyTorch 2.6+ changed torch.load's default to weights_only=True.
+    # RVC and fairseq load trusted local checkpoints the old way.
+    os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
 
     # ---- sanity -----------------------------------------------------------
     if not RVCWEB.is_dir():
@@ -296,8 +382,7 @@ def main():
     if not cuda and not args.allow_cpu:
         die("torch has no CUDA device, so training would run on CPU (hours/days).\n"
             "       Install a CUDA torch build, for example:\n"
-            f"         \"{sys.executable}\" -m pip install --upgrade --index-url https://download.pytorch.org/whl/cu128 torch torchaudio\n"
-            "       Then re-run this command.\n"
+            f"         \"{sys.executable}\" -m pip install --upgrade --index-url https://download.pytorch.org/whl/cu128 torch torchaudio\n"            "       Then re-run this command.\n"
             "       (Or pass --allow-cpu if you really want CPU training.)")
 
     # ---- optional imports / bootstrap ------------------------------------
@@ -323,6 +408,8 @@ def main():
         log(f"[train] clearing previous run: {exp_abs}")
         shutil.rmtree(exp_abs, ignore_errors=True)
 
+    exp_abs.mkdir(parents=True, exist_ok=True)
+
     if args.dry_run:
         log("")
         log("[train] DRY RUN OK - environment and data look usable.")
@@ -333,8 +420,13 @@ def main():
     log("")
     log("[train] 1/5 preprocessing ...")
     os.chdir(RVCWEB)
-    from infer.modules.train.preprocess import preprocess_trainset
-    preprocess_trainset(str(inp), int(args.sr[:-1]) * 1000, args.n_proc, str(exp_abs), args.per)
+    pre_script = RVCWEB / "infer/modules/train/preprocess.py"
+    r = subprocess.run([sys.executable, str(pre_script), str(inp),
+                        str(int(args.sr[:-1]) * 1000), str(args.n_proc),
+                        str(exp_abs), "False", str(args.per)],
+                       cwd=str(RVCWEB), env=subprocess_env(site))
+    if r.returncode != 0:
+        die("preprocessing failed (see output above)")
 
     gt = exp_abs / "0_gt_wavs"
     n_slices = len(list(gt.glob("*.wav"))) if gt.is_dir() else 0
@@ -370,10 +462,10 @@ def main():
     f0d = exp_abs / "2a_f0"
     f0n = exp_abs / "2b-f0nsf"
 
-    def stems(d):
-        return {p.stem.replace(".wav", "") for p in d.glob("*.npy")} if d.is_dir() else set()
+    def stems(d, pattern="*.npy"):
+        return {p.stem.replace(".wav", "") for p in d.glob(pattern)} if d.is_dir() else set()
 
-    names = (stems(gt) & stems(feature) & stems(f0d) & stems(f0n))
+    names = (stems(gt, "*.wav") & stems(feature) & stems(f0d) & stems(f0n))
     if not names:
         die("no matching slices across wav / feature / f0 folders")
 
@@ -393,10 +485,16 @@ def main():
     (exp_abs / "filelist.txt").write_text("\n".join(opt), encoding="utf-8")
 
     import json
-    import config as rvc_config
-    cfg_key = ("v1/" if False else "v2/") + args.sr + ".json"
+    # RVC's v2 config folder has no 40k file in every checkout. The 40k
+    # architecture is identical to v1/40k.json, so fall back to it.
+    cfg_candidates = [RVCWEB / "configs" / "v2" / f"{args.sr}.json",
+                      RVCWEB / "configs" / "v1" / f"{args.sr}.json"]
+    cfg_file = next((p for p in cfg_candidates if p.is_file()), None)
+    if cfg_file is None:
+        die(f"no RVC config for sample rate {args.sr} in {RVCWEB / 'configs'}")
+    cfg_json = json.loads(cfg_file.read_text(encoding="utf-8"))
     with open(exp_abs / "config.json", "w", encoding="utf-8") as f:
-        json.dump(rvc_config.json_config[cfg_key], f, ensure_ascii=False, indent=4)
+        json.dump(cfg_json, f, ensure_ascii=False, indent=4)
 
     # ---- 4. train ---------------------------------------------------------
     log("")
@@ -404,7 +502,10 @@ def main():
     pg = RVCWEB / "assets/pretrained_v2" / f"f0G{args.sr}.pth"
     pd = RVCWEB / "assets/pretrained_v2" / f"f0D{args.sr}.pth"
 
-    cmd = [sys.executable, "infer/modules/train/train.py",
+    runner = exp_abs / "_btp_train_runner.py"
+    runner.write_text(TRAIN_RUNNER, encoding="utf-8")
+
+    cmd = [sys.executable, str(runner),
            "-e", name, "-sr", args.sr, "-f0", "1",
            "-bs", str(args.batch_size), "-g", "0",
            "-te", str(args.epochs), "-se", str(args.save_every),
@@ -415,7 +516,8 @@ def main():
         cmd += ["-pd", str(pd)]
 
     r = subprocess.run(cmd, cwd=str(RVCWEB), env=env)
-    if r.returncode != 0:
+    # 2333333 (and its truncated 8-bit form) is RVC's "training finished" code.
+    if r.returncode not in (0, 2333333, 2333333 & 0xFF):
         die("training failed (see output above)")
 
     # ---- 5. export --------------------------------------------------------
@@ -436,6 +538,21 @@ def main():
     VOICES_OUT.mkdir(parents=True, exist_ok=True)
     out_onnx = VOICES_OUT / f"{name}.onnx"
 
+    # torch >= 2.9 defaults torch.onnx.export to the dynamo exporter, which
+    # needs the optional onnxscript package. RVC exports a plain TorchScript
+    # graph, so force the legacy path; it needs nothing extra.
+    import torch
+    _orig_onnx_export = torch.onnx.export
+
+    def _export_no_dynamo(*a, **kw):
+        kw["dynamo"] = False
+        try:
+            return _orig_onnx_export(*a, **kw)
+        except TypeError:
+            kw.pop("dynamo", None)
+            return _orig_onnx_export(*a, **kw)
+
+    torch.onnx.export = _export_no_dynamo
     from infer.modules.onnx.export import export_onnx
     export_onnx(str(pth), str(out_onnx))
 
