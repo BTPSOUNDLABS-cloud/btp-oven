@@ -1,4 +1,4 @@
-BtP Oven 1.0.0 — first public build.
+BtP Oven 1.0.0 - first public build.
 
 VST3 + Standalone for Windows x64.
 Three loop lanes, ACE-Step generation, Demucs stems, RVC voices,
@@ -7,10 +7,11 @@ RAVE mutation, auto-tune.
 Download the zip, extract it, right-click INSTALL.cmd -> Run as administrator.
 Read README.txt first. Licences: see LICENSING.txt and THIRD-PARTY.txt.
 
-Source available, non-commercial distribution only.
-Contains CC-BY-NC components — not for resale.
+Source available. This free build is not for resale and contains
+CC-BY-NC components (RAVE). A commercial build without RAVE is
+covered in BUILD-VARIANTS.txt.
 
 Includes: VST3, standalone app, Demucs / ContentVec / RMVPE / RAVE models.
 
 SHA-256 (BtP-Oven-1.0.0.zip):
-C5DF5EF7FEE3700B433122369CAAF26602B94279C842255A32EC854BB19BAFBB
+B372E82CC948AD6FB5918EB67297EE03F693CBA844E9C7DCB8FA8084E64E9629
