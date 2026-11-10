@@ -170,12 +170,27 @@ namespace btpai
 
     juce::File getTrainingDir();
 
+    /** Locate the bundled LoRA trainer (train_lora.py). Checks the installed
+        %APPDATA%\\BtP Oven\\Tools folder first, then the plugin folder. */
+    juce::File findLoraTrainerScript();
+
+    /** Locate the ACE-Step 1.5 checkout used for LoRA training. */
+    juce::File findAceStepRoot();
+
+    /** Python interpreter to run the LoRA trainer with, or an empty file
+        when only a PATH lookup ("python") is possible. */
+    juce::File findLoraPython (const juce::File& aceStepRoot);
+
     /** Save a captured AI output into the context-correct training folder.
         kind = top folder (Vocals / Loops / OneShots / Stems / Variants).
-        sub  = optional sub-folder (one-shot category, stem name, ...). */
+        sub  = optional sub-folder (one-shot category, stem name, ...).
+        metadata = optional object with caption / lyrics / bpm / keyscale /
+                   genre / is_instrumental, written to a sibling .json file
+                   that Tools/train_lora.py reads automatically. */
     juce::File saveTrainingCapture (const juce::AudioBuffer<float>& audio, double sampleRate,
                                     const juce::String& kind, const juce::String& sub = {},
-                                    const juce::String& baseName = {});
+                                    const juce::String& baseName = {},
+                                    const juce::var& metadata = {});
 
     juce::Array<DatasetInfo> scanDatasets();
     DatasetInfo scanDataset (const juce::File& folder);

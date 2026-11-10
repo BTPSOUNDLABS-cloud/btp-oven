@@ -1,6 +1,8 @@
 #include "AiEngine.h"
 #include "ModelPaths.h"
 
+#include <cstdlib>
+
 #if BTP_HAS_AI
  #include "pipeline-synth.h"
  #include "pipeline-lm.h"
@@ -24,6 +26,10 @@ namespace
         add (m.vae);
         add (m.lm);
         add (m.lora);
+
+        if (m.lora.isDirectory())
+            s << (m.lora.getChildFile ("adapter_model.safetensors").getSize()) << "|";
+
         s << m.loraScale;
 
         return s;
@@ -452,7 +458,8 @@ void AiEngine::doLoad()
     params.dit_path          = ditPath.toRawUTF8();
     params.text_encoder_path = encPath.toRawUTF8();
     params.vae_path          = vaePath.toRawUTF8();
-    params.lora_path         = m.lora.existsAsFile() ? loraPath.toRawUTF8() : nullptr;
+    params.lora_path         = (m.lora.existsAsFile() || m.lora.isDirectory())
+                                   ? loraPath.toRawUTF8() : nullptr;
     params.lora_scale        = juce::jlimit (0.0f, 2.0f, m.loraScale);
     params.use_fa            = true;
     params.clamp_fp16        = false;
@@ -743,13 +750,111 @@ juce::StringArray findLoras()
         if (! root.isDirectory())
             continue;
 
-        for (const auto& f : root.findChildFiles (juce::File::findFiles, false, "*.safetensors"))
-            if (! out.contains (f.getFullPathName()))
+        // Preferred form: a folder holding adapter_model.safetensors and
+        // adapter_config.json (that is what train_lora.py exports).
+        for (const auto& dir : root.findChildFiles (juce::File::findDirectories, true))
+        {
+            if (dir.getChildFile ("adapter_model.safetensors").existsAsFile()
+                && ! out.contains (dir.getFullPathName()))
+                out.add (dir.getFullPathName());
+        }
+
+        // Also accept loose single-file .safetensors adapters.
+        for (const auto& f : root.findChildFiles (juce::File::findFiles, true, "*.safetensors"))
+        {
+            const bool insideAdapterFolder =
+                f.getFileName().equalsIgnoreCase ("adapter_model.safetensors")
+                && f.getParentDirectory().getChildFile ("adapter_config.json").existsAsFile();
+
+            if (! insideAdapterFolder && ! out.contains (f.getFullPathName()))
                 out.add (f.getFullPathName());
+        }
     }
 
     out.sort (true);
     return out;
+}
+
+juce::File findLoraTrainerScript()
+{
+    juce::Array<juce::File> candidates;
+    candidates.add (getConfigDir().getChildFile ("Tools").getChildFile ("train_lora.py"));
+    candidates.add (juce::File::getSpecialLocation (juce::File::currentApplicationFile)
+                        .getParentDirectory().getChildFile ("Tools").getChildFile ("train_lora.py"));
+    candidates.add (juce::File::getCurrentWorkingDirectory().getChildFile ("Tools").getChildFile ("train_lora.py"));
+    candidates.add (juce::File::getCurrentWorkingDirectory().getChildFile ("Packaging")
+                        .getChildFile ("Tools").getChildFile ("train_lora.py"));
+
+    for (const auto& f : candidates)
+        if (f.existsAsFile())
+            return f;
+
+    return {};
+}
+
+juce::File findAceStepRoot()
+{
+    juce::Array<juce::File> candidates;
+
+    if (auto* env = std::getenv ("BTP_ACESTEP_ROOT"))
+        candidates.add (juce::File (juce::String (env)));
+
+    const auto settings = getConfigDir().getChildFile ("lora_settings.json");
+    if (settings.existsAsFile())
+    {
+        const auto parsed = juce::JSON::parse (settings);
+        if (auto* obj = parsed.getDynamicObject())
+        {
+            const auto path = obj->getProperty ("acestep_root").toString();
+            if (path.isNotEmpty())
+                candidates.add (juce::File (path));
+        }
+    }
+
+    candidates.add (getConfigDir().getChildFile ("ACE-Step-1.5"));
+    candidates.add (juce::File ("D:/Dev/ACE-Step-1.5"));
+    candidates.add (juce::File::getSpecialLocation (juce::File::currentApplicationFile)
+                        .getParentDirectory().getChildFile ("ACE-Step-1.5"));
+
+    for (const auto& f : candidates)
+        if (f.getChildFile ("train.py").existsAsFile()
+            && f.getChildFile ("checkpoints").isDirectory())
+            return f;
+
+    return {};
+}
+
+juce::File findLoraPython (const juce::File& aceStepRoot)
+{
+    juce::Array<juce::File> candidates;
+
+    if (auto* env = std::getenv ("BTP_LORA_PYTHON"))
+        candidates.add (juce::File (juce::String (env)));
+
+    const auto settings = getConfigDir().getChildFile ("lora_settings.json");
+    if (settings.existsAsFile())
+    {
+        const auto parsed = juce::JSON::parse (settings);
+        if (auto* obj = parsed.getDynamicObject())
+        {
+            const auto path = obj->getProperty ("python").toString();
+            if (path.isNotEmpty())
+                candidates.add (juce::File (path));
+        }
+    }
+
+    if (aceStepRoot.isDirectory())
+    {
+        candidates.add (aceStepRoot.getChildFile (".venv").getChildFile ("Scripts").getChildFile ("python.exe"));
+        candidates.add (aceStepRoot.getChildFile ("venv").getChildFile ("Scripts").getChildFile ("python.exe"));
+        candidates.add (aceStepRoot.getChildFile (".venv").getChildFile ("bin").getChildFile ("python"));
+    }
+
+    for (const auto& f : candidates)
+        if (f.existsAsFile())
+            return f;
+
+    return {};
 }
 
 juce::File getTrainingDir()
@@ -759,7 +864,7 @@ juce::File getTrainingDir()
 
 juce::File saveTrainingCapture (const juce::AudioBuffer<float>& audio, double sampleRate,
                                 const juce::String& kind, const juce::String& sub,
-                                const juce::String& baseName)
+                                const juce::String& baseName, const juce::var& metadata)
 {
     juce::File dir = getTrainingDir().getChildFile (kind);
 
@@ -796,6 +901,31 @@ juce::File saveTrainingCapture (const juce::AudioBuffer<float>& audio, double sa
         out.release();   // the writer owns the stream now
         writer->writeFromAudioSampleBuffer (audio, 0, audio.getNumSamples());
         writer->flush();
+    }
+
+    // Sidecar metadata: train_lora.py reads this for caption / lyrics / BPM.
+    {
+        const double seconds = sampleRate > 0.0
+                                   ? (double) audio.getNumSamples() / sampleRate : 0.0;
+
+        auto* sidecarObj = new juce::DynamicObject();
+        const juce::var sidecar (sidecarObj);
+
+        sidecarObj->setProperty ("kind", kind);
+        sidecarObj->setProperty ("sub", sub);
+        sidecarObj->setProperty ("duration", seconds);
+        sidecarObj->setProperty ("sample_rate", sampleRate > 0.0 ? sampleRate : 48000.0);
+        sidecarObj->setProperty ("channels", audio.getNumChannels());
+        sidecarObj->setProperty ("created", juce::Time::getCurrentTime().toISO8601 (true));
+
+        if (auto* meta = metadata.getDynamicObject())
+            for (const auto& p : meta->getProperties())
+                sidecarObj->setProperty (p.name, p.value);
+
+        if (sidecarObj->getProperty ("caption").toString().isEmpty() && baseName.isNotEmpty())
+            sidecarObj->setProperty ("caption", baseName);
+
+        file.withFileExtension (".json").replaceWithText (juce::JSON::toString (sidecar, true));
     }
 
     return file;

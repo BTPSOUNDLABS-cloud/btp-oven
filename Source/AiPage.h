@@ -63,6 +63,8 @@ private:
         AiPage& owner;
     };
 
+    class LoraTrainDialog;
+
     //==========================================================================
     void timerCallback() override;
 
@@ -82,6 +84,8 @@ private:
     void newDataset();
     void addFilesToDataset();
     void openDatasetFolder();
+    void openLoraTrainDialog();
+    void startLoraTraining();
 
     void paintPanel (juce::Graphics&, juce::Rectangle<float> design, const juce::String& title,
                      const juce::String& hint = {});
@@ -118,6 +122,9 @@ private:
     juce::TextButton* generateButton = nullptr;
     juce::TextButton* cancelButton = nullptr;
     juce::TextButton* vocalsButton = nullptr;
+    juce::TextButton* loraTrainButton = nullptr;
+
+    std::unique_ptr<LoraTrainDialog> loraDialog;
 
     DatasetModel datasetModel { *this };
 
@@ -125,6 +132,13 @@ private:
     juce::StringArray loras;
     juce::Array<juce::var> masterPresets;
     AiEngine::Models currentModels;
+
+    juce::File pendingLoraDir;
+    juce::String pendingLoraName;
+    juce::int64 loraTrainingStartMs = 0;
+    bool loraTraining = false;
+
+    juce::ChildProcess loraLauncher;
 
     juce::Rectangle<float> promptPanel, enginePanel, lanePanel, genPanel, datasetPanel;
     juce::Rectangle<float> waveformArea;

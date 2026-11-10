@@ -149,7 +149,8 @@ if (Test-Path $manifestSrc) {
     Ok 'training manifests'
 }
 
-$toolsSrc = Join-Path $root 'Tools'
+$toolsSrc = Join-Path $proj 'Tools'
+if (-not (Test-Path $toolsSrc)) { $toolsSrc = Join-Path $root 'Tools' }
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'Tools') | Out-Null
 if (Test-Path $toolsSrc) {
     Get-ChildItem $toolsSrc -File | ForEach-Object {

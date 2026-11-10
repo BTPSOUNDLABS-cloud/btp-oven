@@ -26,5 +26,17 @@ in the AI page; TRAIN now captures the selected loop when there is no
 AI take and shows the saved path; LORA DIR opens the LoRA folder and
 rescans it.
 
+Update (2026-11-09, later): real ACE-Step LoRA fine-tuning. Every TRAIN
+capture now also writes a .json sidecar (caption, lyrics, BPM, key,
+duration). The AI page has a TRAIN LORA dialog (name / dataset / epochs
+/ rank) that runs Tools\train_lora.py in a console, then auto-selects
+and applies the finished adapter. The LoRA picker accepts adapter
+folders as well as loose .safetensors files. Tested on a 12 GB RTX 5070:
+10 loops, rank 8, 6 steps, 4.6 GB peak VRAM. See TRAINING-GUIDE.txt
+section 5 for the one-time Python setup.
+
 SHA-256 (BtP-Oven-1.0.0.zip):
-0E4E29CE1ED7D9AEC977EDCB4B6E677A6CDD60653BE563D316E9AD7005E5DF2E
+AAF3B8924F9393ED1C1B3A1CCD1548823A222A92867041B99B2681F0F6BFC0B2
+
+SHA-256 (BtP-Oven-1.0.0-commercial.zip):
+2E6396E912036D119A9807B9C2EDC9E9D8352EF019846685B6CE18B518CE39A0

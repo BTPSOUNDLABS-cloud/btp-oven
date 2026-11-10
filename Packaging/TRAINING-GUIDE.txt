@@ -304,24 +304,97 @@ so the graph fits in ONNX.  That is why variants are slightly
 
 
 ----------------------------------------------------------------
-5. ACE-STEP LORA (FUTURE / ADVANCED)
+5. ACE-STEP LORA - REAL FINE-TUNING
 ----------------------------------------------------------------
 
-The plugin already has a LoRA slot and scale control on the AI GEN
-page, but the fine-tuning pipeline is not part of this release.
-Your captured Loops are the dataset you would use later.
+This is the part that lets you train your OWN sound into the AI.
+The plugin captures the dataset, runs a one-time GPU job, and then
+loads the resulting adapter in-process like any other LoRA.
 
-LoRA discovery runs on AI-page open, after TRAIN, and when LORA DIR is
-pressed.  It scans:
-  %APPDATA%\BtP Oven\LoRAs\           (drop .safetensors here)
-  <ACE-Step model folder>\            (optional second location)
-LORA DIR creates the folder and opens it in Explorer, so an empty
-picker is never a mystery.
+WHAT YOU NEED (one time)
+  * NVIDIA GPU.  12 GB works for loop-length captures (tested on an
+    RTX 5070: 4.6 GB peak, ~20-60 s per run).
+  * ACE-Step 1.5 installed somewhere, with its checkpoints:
+      <ACE-Step-1.5>\train.py
+      <ACE-Step-1.5>\checkpoints\acestep-v15-turbo
+      <ACE-Step-1.5>\checkpoints\vae
+      <ACE-Step-1.5>\checkpoints\Qwen3-Embedding-0.6B
+  * A Python environment with the ACE-Step requirements.  Reuse the
+    one that ships with ACE-Step:
+      <ACE-Step-1.5>\.venv\Scripts\python.exe
+    To build a fresh one (Python 3.11 or 3.12):
+      cd <ACE-Step-1.5>
+      py -3.12 -m venv .venv
+      .venv\Scripts\python.exe -m pip install --upgrade pip
+      .venv\Scripts\python.exe -m pip install -r requirements.txt
+      .venv\Scripts\python.exe -m pip install -r requirements-sidestep.txt
+    The plugin only needs to find python.exe and train.py.
 
-Recommended capture set for a style LoRA:
-  * 30-120 loops of the same style / tempo family
-  * clean intros, no long silence
-  * consistent BPM and key where possible
+POINT THE PLUGIN AT IT
+  The trainer auto-detects these locations:
+      D:\Dev\ACE-Step-1.5
+      %APPDATA%\BtP Oven\ACE-Step-1.5
+      <plugin folder>\ACE-Step-1.5
+  If yours is elsewhere, create this file once:
+      %APPDATA%\BtP Oven\lora_settings.json
+
+    {
+      "acestep_root": "D:\\your\\ACE-Step-1.5",
+      "python": "D:\\your\\ACE-Step-1.5\\.venv\\Scripts\\python.exe"
+    }
+
+  Environment variables also work for one session:
+      set BTP_ACESTEP_ROOT=D:\your\ACE-Step-1.5
+      set BTP_LORA_PYTHON=D:\your\ACE-Step-1.5\.venv\Scripts\python.exe
+
+TRAIN IT
+  1. Capture audio with the TRAIN buttons (Loops, Vocals, One-shots,
+     Variants or Stems).  Every capture also writes a .json sidecar
+     with its prompt/caption, lyrics, BPM and key, so the trainer
+     knows what the audio is.
+  2. On AI GEN, press TRAIN LORA.
+  3. Pick the data folder (usually Loops), epochs and rank.
+       rank 8-16   good default for 12 GB cards
+       rank 32     larger datasets / more capacity
+       epochs 40   first try; 100+ for a strong style
+     The dialog shows how many files are in the folder.
+  4. A console opens and shows preprocessing, training and export.
+     Logs also land in Training\runs\lora_<name>.bat.
+  5. When adapter_model.safetensors appears, the plugin selects and
+     applies the new LoRA automatically.  Press GENERATE.
+
+DATASET GUIDANCE
+  * 30-120 loops of the same style / tempo family gives a clear
+    style LoRA.  Fewer files still work but move the sound less.
+  * Clean intros, no long silence.
+  * Consistent BPM and key where possible.
+  * Vocals: the LoRA trains the instrumental/style model, not the
+    4B lyric singer.  Vocal TIMBRE still comes from RVC voices.
+  * Do not mix unrelated genres in one LoRA; train one character.
+
+FILES AND MANUAL USE
+  Output: %APPDATA%\BtP Oven\LoRAs\<name>\
+      adapter_model.safetensors
+      adapter_config.json      (alpha is read automatically)
+      lora_info.json           (dataset / epochs / rank record)
+
+  The same job can be run by hand:
+    "%APPDATA%\BtP Oven\Tools\train_lora.py" --name my_sound ^
+      --audio-dir "%APPDATA%\BtP Oven\Training\Loops" ^
+      --epochs 60 --rank 16
+
+  Work files live under <ACE-Step-1.5>\_btp_lora\<name>\ because the
+  official trainer sandboxes paths to its own folder.  They are safe
+  to delete after training.
+
+LORA PICKER
+  Discovery runs on AI-page open, after TRAIN, and when LORA DIR is
+  pressed.  It scans:
+    %APPDATA%\BtP Oven\LoRAs\<folder>\        adapter folders (preferred)
+    %APPDATA%\BtP Oven\LoRAs\*.safetensors    loose files
+    <ACE-Step model folder>\                  optional second location
+  Select one, set SCALE, press APPLY, then GENERATE.  SCALE 0 = off,
+  1.0 = trained strength, above 1 pushes the style harder.
 
 
 ----------------------------------------------------------------

@@ -274,12 +274,19 @@ take yet, and shows the full saved path in the status line.
 
 LoRAs are discovered in:
   %APPDATA%\BtP Oven\LoRAs\
-Drop .safetensors files there (or in the plugin's Models folder) and
-press LORA DIR on the AI page to open the folder.  The LoRA picker
+Adapter folders (adapter_model.safetensors + adapter_config.json) and
+loose .safetensors files are picked up.  LORA DIR opens the folder and
 rescans when the page opens, after TRAIN and when LORA DIR is pressed.
 
-Actual neural training (RVC, RAVE, LoRA) is a separate one-time
-script run, because it takes 30-60+ minutes on a GPU.
+ACE-Step LoRAs can be trained from inside the plugin: press TRAIN LORA
+on the AI page, choose the capture folder / epochs / rank, and a console
+runs the one-time GPU job.  The finished adapter appears in the picker
+and is applied automatically.  This needs an ACE-Step 1.5 checkout with
+its checkpoints and Python environment.  TRAINING-GUIDE.txt section 5
+has the one-time setup and tested 12 GB settings.
+
+RVC voice training is still a separate one-time script run, because it
+takes 30-60+ minutes on a GPU.
 
 See TRAINING-GUIDE.txt for the full workflow, folder map and example
 JSON manifests.  Section 0 there has the one-time GPU / CUDA setup

@@ -157,7 +157,9 @@ $dirs = @(
     (Join-Path $trainingDir 'Stems\other'),
     (Join-Path $trainingDir 'Stems\vocals'),
     (Join-Path $trainingDir 'runs'),
-    (Join-Path $trainingDir 'manifests')
+    (Join-Path $trainingDir 'manifests'),
+    (Join-Path $appData 'LoRAs'),
+    (Join-Path $appData 'Tools')
 )
 foreach ($cat in @('FX','Impacts','Risers','Pads','Vocal Chops','Sirens','Phones','Cash','Ambience','Synth One Shots')) {
     $dirs += (Join-Path $trainingDir "OneShots\$cat")
@@ -172,6 +174,17 @@ $manifestSrc = Join-Path $here 'manifests'
 if (Test-Path $manifestSrc) {
     Copy-Item (Join-Path $manifestSrc '*.json') (Join-Path $trainingDir 'manifests') -Force
     Ok 'example training manifests copied'
+}
+
+# copy the LoRA trainer wrapper so the AI page can launch it
+$toolsSrc = Join-Path $here 'Tools'
+$toolsDest = Join-Path $appData 'Tools'
+if (Test-Path $toolsSrc) {
+    New-Item -ItemType Directory -Force -Path $toolsDest | Out-Null
+    Get-ChildItem $toolsSrc -File | ForEach-Object {
+        Copy-Item $_.FullName $toolsDest -Force
+    }
+    Ok "training tools -> $toolsDest"
 }
 
 # legal notices stay with the install

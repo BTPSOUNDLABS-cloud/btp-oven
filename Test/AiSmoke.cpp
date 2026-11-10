@@ -4,8 +4,9 @@
 #include "request.h"
 
 #include <cstdio>
+#include <cstdlib>
 
-int main()
+int main (int argc, char** argv)
 {
     AceSynthParams p;
     ace_synth_default_params (&p);
@@ -15,6 +16,13 @@ int main()
     p.vae_path          = "D:/Dev/ACE-Step-1.5/acestep.vst3/models/vae-BF16.gguf";
     p.use_fa            = true;
     p.clamp_fp16        = false;
+
+    // Optional: path to a LoRA .safetensors file or an adapter folder.
+    if (argc > 1)
+        p.lora_path = argv[1];
+
+    if (argc > 2)
+        p.lora_scale = (float) std::atof (argv[2]);
 
     fprintf (stderr, "[smoke] loading...\n");
 

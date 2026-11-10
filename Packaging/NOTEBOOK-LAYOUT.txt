@@ -32,6 +32,20 @@ A. THE BIG PICTURE
                     v
    NEW VOICE APPEARS IN THE VOICE DROPDOWN
 
+   SAME CAPTURES CAN ALSO TRAIN AN ACE-STEP LORA
+                    |
+                    |  AI GEN -> TRAIN LORA
+                    v
+   +---------------------------------------------+
+   |  %APPDATA%\BtP Oven\LoRAs\<name>\           |
+   |      adapter_model.safetensors              |
+   |      adapter_config.json                    |
+   +---------------------------------------------+
+                    |
+                    |  auto-selects when finished
+                    v
+   LORA PICKER -> APPLY -> GENERATE
+
 
 ----------------------------------------------------------------
 B. FOLDER TREE
@@ -84,6 +98,14 @@ B. FOLDER TREE
 |   +-- runs\                     (script work folders)
 |   +-- manifests\                (example JSON recipes)
 |
++-- LoRAs\                        (trained ACE-Step adapters)
+|   +-- dark_trap_140\
+|       +-- adapter_model.safetensors
+|       +-- adapter_config.json
+|       +-- lora_info.json
+|
++-- Tools\                        (train_lora.py and helpers)
+|
 +-- Datasets\                     (optional dataset manager)
 +-- one-shot library\             (chosen in the SHOTS page)
 +-- ai_settings.json
@@ -102,6 +124,7 @@ C. "WHAT BUTTON SAVES WHERE" CHEAT SHEET
   | VOICE          | TRAIN&SAVE  | Training\Vocals                 |
   | AI GEN         | TRAIN       | Training\Loops                  |
   | AI GEN (sung)  | TRAIN       | Training\Vocals                 |
+  | AI GEN         | TRAIN LORA  | LoRAs\<name>\ (adapter folder)  |
   | SHOTS          | TRAIN       | Training\OneShots\<category>    |
   | SHOTS (RAVE)   | TRAIN VAR   | Training\Variants               |
   | STEM drums     | TRAIN       | Training\Stems\drums            |
@@ -140,6 +163,7 @@ D. JOB CARD (copy one per model you train)
 
   OUTPUT FILE
     %APPDATA%\BtP Oven\Models\____________________
+    (ACE LoRA) %APPDATA%\BtP Oven\LoRAs\________\
 
   RESULT
     [ ] works   [ ] needs more audio   [ ] retrain

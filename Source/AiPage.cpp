@@ -30,6 +30,152 @@ namespace
 }
 
 //==============================================================================
+/** Simple in-page dialog: name + dataset + epochs + rank.  Avoids a modal
+    OS window inside plugin editors. */
+class AiPage::LoraTrainDialog : public juce::Component
+{
+public:
+    explicit LoraTrainDialog (AiPage& o) : owner (o)
+    {
+        setOpaque (false);
+        setInterceptsMouseClicks (true, true);
+
+        nameEditor.setMultiLine (false);
+        nameEditor.setReturnKeyStartsNewLine (false);
+        nameEditor.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff101215));
+        nameEditor.setColour (juce::TextEditor::textColourId, OvenLookAndFeel::lime());
+        nameEditor.setColour (juce::TextEditor::outlineColourId, juce::Colour (0xff2a2e33));
+        nameEditor.setColour (juce::TextEditor::focusedOutlineColourId,
+                              OvenLookAndFeel::lime().withAlpha (0.6f));
+        nameEditor.setText ("lora_" + juce::Time::getCurrentTime().formatted ("%Y%m%d_%H%M"));
+        addAndMakeVisible (nameEditor);
+
+        auto setupBox = [this] (juce::ComboBox& box)
+        {
+            box.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff101215));
+            box.setColour (juce::ComboBox::textColourId, OvenLookAndFeel::lime());
+            box.setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff2a2e33));
+            box.setColour (juce::ComboBox::arrowColourId, OvenLookAndFeel::lime());
+            addAndMakeVisible (box);
+        };
+
+        setupBox (dataBox);
+        dataBox.addItemList ({ "Loops", "Vocals", "One-shots", "Variants", "Stems" }, 1);
+        dataBox.setSelectedId (1);
+
+        setupBox (epochsBox);
+        epochsBox.addItemList ({ "10", "20", "40", "60", "100" }, 1);
+        epochsBox.setSelectedId (3);
+
+        setupBox (rankBox);
+        rankBox.addItemList ({ "8", "16", "32" }, 1);
+        rankBox.setSelectedId (2);
+
+        startButton.setButtonText ("START TRAINING");
+        startButton.setColour (juce::TextButton::buttonColourId,
+                               OvenLookAndFeel::lime().withAlpha (0.16f));
+        startButton.setColour (juce::TextButton::textColourOffId, OvenLookAndFeel::lime());
+        startButton.onClick = [this] { owner.startLoraTraining(); };
+        addAndMakeVisible (startButton);
+
+        cancelButton.setButtonText ("CANCEL");
+        cancelButton.setColour (juce::TextButton::textColourOffId, OvenLookAndFeel::cream());
+        cancelButton.onClick = [this] { setVisible (false); };
+        addAndMakeVisible (cancelButton);
+    }
+
+    void focusName()
+    {
+        nameEditor.grabKeyboardFocus();
+        nameEditor.selectAll();
+    }
+
+    juce::String getName() const     { return nameEditor.getText(); }
+    int getDataIndex() const         { return juce::jmax (0, dataBox.getSelectedId() - 1); }
+    int getEpochs() const            { return juce::jmax (1, epochsBox.getText().getIntValue()); }
+    int getRank() const              { return juce::jmax (1, rankBox.getText().getIntValue()); }
+
+    void paint (juce::Graphics& g) override
+    {
+        const float s = owner.sc;
+
+        auto R = [s] (float x, float y, float w, float h)
+        {
+            return juce::Rectangle<int> (juce::roundToInt (x * s), juce::roundToInt (y * s),
+                                         juce::roundToInt (w * s), juce::roundToInt (h * s));
+        };
+
+        g.setColour (juce::Colours::black.withAlpha (0.62f));
+        g.fillRect (getLocalBounds());
+
+        const auto panel = R (344.0f, 196.0f, 460.0f, 258.0f).toFloat();
+
+        juce::ColourGradient grad (juce::Colour (0xff23262b), panel.getX(), panel.getY(),
+                                   juce::Colour (0xff121417), panel.getX(), panel.getBottom(), false);
+        grad.addColour (0.7, juce::Colour (0xff191c20));
+        g.setGradientFill (grad);
+        g.fillRoundedRectangle (panel, 8.0f * s);
+
+        g.setColour (OvenLookAndFeel::lime().withAlpha (0.8f));
+        g.drawRoundedRectangle (panel, 8.0f * s, 1.6f * s);
+
+        g.setColour (OvenLookAndFeel::lime());
+        g.setFont (juce::Font (juce::FontOptions (juce::jmax (9.0f, 12.0f * s), juce::Font::bold)));
+        g.drawText ("TRAIN A LORA", R (368.0f, 210.0f, 412.0f, 18.0f),
+                    juce::Justification::centredLeft, false);
+
+        g.setColour (OvenLookAndFeel::cream().withAlpha (0.6f));
+        g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.5f, 9.0f * s), juce::Font::bold)));
+        g.drawFittedText ("Captures -> one-time GPU job -> new adapter in the LORA list.",
+                          R (368.0f, 234.0f, 412.0f, 24.0f),
+                          juce::Justification::topLeft, 2);
+
+        auto label = [&] (const juce::String& text, juce::Rectangle<int> area)
+        {
+            g.setColour (OvenLookAndFeel::cream().withAlpha (0.5f));
+            g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.0f, 8.5f * s), juce::Font::bold)));
+            g.drawText (text, area, juce::Justification::centredLeft, false);
+        };
+
+        label ("NAME",   R (368.0f, 268.0f, 412.0f, 12.0f));
+        label ("DATA",   R (368.0f, 324.0f, 150.0f, 12.0f));
+        label ("EPOCHS", R (530.0f, 324.0f, 110.0f, 12.0f));
+        label ("RANK",   R (652.0f, 324.0f, 128.0f, 12.0f));
+
+        g.setColour (OvenLookAndFeel::cream().withAlpha (0.35f));
+        g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.0f, 8.5f * s), juce::Font::bold)));
+        g.drawFittedText ("12 GB cards handle loop-length data well at rank 8-16. "
+                          "40-100 epochs for a clear style. Logs go to Training\\runs.",
+                          R (368.0f, 376.0f, 412.0f, 24.0f),
+                          juce::Justification::topLeft, 2);
+    }
+
+    void resized() override
+    {
+        const float s = owner.sc;
+
+        auto R = [s] (float x, float y, float w, float h)
+        {
+            return juce::Rectangle<int> (juce::roundToInt (x * s), juce::roundToInt (y * s),
+                                         juce::roundToInt (w * s), juce::roundToInt (h * s));
+        };
+
+        nameEditor.setBounds (R (368.0f, 282.0f, 412.0f, 28.0f));
+        dataBox.setBounds    (R (368.0f, 338.0f, 150.0f, 26.0f));
+        epochsBox.setBounds  (R (530.0f, 338.0f, 110.0f, 26.0f));
+        rankBox.setBounds    (R (652.0f, 338.0f, 128.0f, 26.0f));
+        startButton.setBounds (R (368.0f, 404.0f, 230.0f, 34.0f));
+        cancelButton.setBounds (R (612.0f, 404.0f, 168.0f, 34.0f));
+    }
+
+private:
+    AiPage& owner;
+    juce::TextEditor nameEditor;
+    juce::ComboBox dataBox, epochsBox, rankBox;
+    juce::TextButton startButton, cancelButton;
+};
+
+//==============================================================================
 AiPage::AiPage (BtPOvenAudioProcessor& p)
     : processor (p),
       engine (AiEngine::getInstance())
@@ -155,7 +301,31 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
                        return;
                    }
 
-                   const auto f = btpai::saveTrainingCapture (audio, rate, kind, {}, prompt);
+                   const auto f = btpai::saveTrainingCapture (
+                       audio, rate, kind, {}, prompt,
+                       [&]
+                       {
+                           const auto lyrics = processor.getAiResultLyrics();
+                           const bool vocal = lyrics.isNotEmpty()
+                                              || (vocalsButton != nullptr && vocalsButton->getToggleState());
+
+                           const int root  = (int) std::lround (
+                               processor.apvts.getRawParameterValue ("key_root")->load());
+                           const int scale = (int) std::lround (
+                               processor.apvts.getRawParameterValue ("scale_type")->load());
+
+                           auto* meta = new juce::DynamicObject();
+                           meta->setProperty ("lyrics", lyrics.isNotEmpty() ? lyrics
+                                               : (vocal && lyricsEditor != nullptr
+                                                      ? lyricsEditor->getText()
+                                                      : juce::String ("[Instrumental]")));
+                           meta->setProperty ("bpm", bpmSlider != nullptr ? bpmSlider->getValue() : 0.0);
+                           meta->setProperty ("keyscale", juce::String (btp::noteName (root))
+                                                              + (scale == 0 ? " major" : " minor"));
+                           meta->setProperty ("genre", "BtP Oven capture");
+                           meta->setProperty ("is_instrumental", ! vocal);
+                           return juce::var (meta);
+                       }());
 
                    // Make sure the LoRA drop-folder exists so the picker is never
                    // silently empty, then rescan it.
@@ -166,7 +336,7 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
                        f.existsAsFile()
                            ? juce::String ("CAPTURED ") + kind.toUpperCase()
                                + " -> " + f.getFullPathName()
-                               + "  (READY FOR LORA TRAINING)"
+                               + "  (PRESS TRAIN LORA)"
                            : "CAPTURE FAILED");
                });
 
@@ -282,6 +452,14 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
                });
 
     addAction ("APPLY", { 1020.0f, 644.0f, 112.0f, 28.0f }, [this] { applyLora(); });
+
+    loraTrainButton = addAction ("TRAIN LORA", { 1004.0f, 612.0f, 132.0f, 26.0f },
+                                 [this] { openLoraTrainDialog(); });
+    loraTrainButton->setTooltip ("Turn captured Loops / Vocals into a LoRA adapter");
+
+    loraDialog = std::make_unique<LoraTrainDialog> (*this);
+    loraDialog->setVisible (false);
+    addChildComponent (*loraDialog);
 
     refreshDatasets();
     refreshLoras();
@@ -540,9 +718,138 @@ void AiPage::applyLora()
 
     engine.setModels (currentModels);
 
-    processor.setStatusMessage (currentModels.lora.existsAsFile()
+    const bool hasLora = currentModels.lora.existsAsFile() || currentModels.lora.isDirectory();
+
+    processor.setStatusMessage (hasLora
                                     ? "LORA APPLIED - RELOADS ON NEXT RUN"
                                     : "LORA CLEARED");
+}
+
+void AiPage::openLoraTrainDialog()
+{
+    if (loraDialog == nullptr)
+        return;
+
+    loraDialog->setVisible (true);
+    loraDialog->toFront (true);
+    loraDialog->focusName();
+}
+
+void AiPage::startLoraTraining()
+{
+    if (loraTraining)
+    {
+        processor.setStatusMessage ("LORA TRAINING ALREADY RUNNING - WATCH THE CONSOLE");
+        return;
+    }
+
+    auto name = loraDialog != nullptr ? loraDialog->getName() : juce::String();
+    name = name.retainCharacters ("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-")
+               .trim().replace (" ", "_");
+
+    if (name.isEmpty())
+        name = "lora_" + juce::String (juce::Time::getCurrentTime().toMilliseconds());
+
+    static const char* const kinds[] = { "Loops", "Vocals", "OneShots", "Variants", "Stems" };
+    const int kindIndex = loraDialog != nullptr ? juce::jlimit (0, 4, loraDialog->getDataIndex()) : 0;
+
+    const auto dataDir = btpai::getTrainingDir().getChildFile (kinds[kindIndex]);
+    const auto info = btpai::scanDataset (dataDir);
+
+    if (info.numFiles <= 0)
+    {
+        processor.setStatusMessage (juce::String ("NO CAPTURES IN ") + kinds[kindIndex]
+                                    + " - PRESS TRAIN FIRST");
+        return;
+    }
+
+    const auto script = btpai::findLoraTrainerScript();
+
+    if (! script.existsAsFile())
+    {
+        processor.setStatusMessage ("TRAINER MISSING: Tools\\train_lora.py - REINSTALL OR SEE TRAINING GUIDE");
+        return;
+    }
+
+    const auto root = btpai::findAceStepRoot();
+
+    if (! root.isDirectory())
+    {
+        processor.setStatusMessage ("ACE-STEP 1.5 NOT FOUND - SEE TRAINING GUIDE (LORA SECTION)");
+        return;
+    }
+
+    const auto python = btpai::findLoraPython (root);
+
+    if (! python.existsAsFile())
+    {
+        processor.setStatusMessage ("PYTHON FOR LORA TRAINING NOT FOUND - SEE TRAINING GUIDE");
+        return;
+    }
+
+    const int epochs = loraDialog != nullptr ? loraDialog->getEpochs() : 40;
+    const int rank   = loraDialog != nullptr ? loraDialog->getRank() : 16;
+
+    auto loraRoot = btpai::getLoraDir();
+    loraRoot.createDirectory();
+
+    const auto outDir = loraRoot.getChildFile (name);
+    outDir.createDirectory();
+
+    auto runs = btpai::getTrainingDir().getChildFile ("runs");
+    runs.createDirectory();
+
+    const auto bat = runs.getChildFile ("lora_" + name + ".bat");
+
+    juce::StringArray lines;
+    lines.add ("@echo off");
+    lines.add ("title BtP Oven - LoRA training - " + name);
+    lines.add ("echo BtP Oven LoRA training: " + name);
+    lines.add ("echo.");
+    lines.add ("cd /d \"" + root.getFullPathName() + "\"");
+    lines.add ("\"" + python.getFullPathName() + "\" \"" + script.getFullPathName() + "\""
+               + " --name \"" + name + "\""
+               + " --audio-dir \"" + dataDir.getFullPathName() + "\""
+               + " --output-dir \"" + loraRoot.getFullPathName() + "\""
+               + " --acestep-root \"" + root.getFullPathName() + "\""
+               + " --python \"" + python.getFullPathName() + "\""
+               + " --epochs " + juce::String (epochs)
+               + " --rank " + juce::String (rank)
+               + " --alpha " + juce::String (rank * 2));
+    lines.add ("echo.");
+    lines.add ("echo ---------------------------------------------");
+    lines.add ("echo Training finished. Press a key to close.");
+    lines.add ("pause >nul");
+
+    if (! bat.replaceWithText (lines.joinIntoString ("\r\n"), false, false, "\r\n"))
+    {
+        processor.setStatusMessage ("COULD NOT WRITE TRAINING SCRIPT -> " + bat.getFullPathName());
+        return;
+    }
+
+    const juce::String command = "cmd.exe /c start \"BtP Oven LoRA\" \""
+                                 + bat.getFullPathName() + "\"";
+
+    if (! loraLauncher.start (command))
+    {
+        processor.setStatusMessage ("COULD NOT LAUNCH TRAINER - RUN " + bat.getFullPathName());
+        return;
+    }
+
+    pendingLoraDir = outDir;
+    pendingLoraName = name;
+    loraTrainingStartMs = juce::Time::getCurrentTime().toMilliseconds();
+    loraTraining = true;
+
+    if (loraDialog != nullptr)
+        loraDialog->setVisible (false);
+
+    if (loraTrainButton != nullptr)
+        loraTrainButton->setButtonText ("TRAINING...");
+
+    processor.setStatusMessage ("LORA TRAINING STARTED: " + name + "  ("
+                                + juce::String (info.numFiles) + " FILES, "
+                                + juce::String (epochs) + " EPOCHS) - CONSOLE OPEN");
 }
 
 void AiPage::pickModelDir()
@@ -757,6 +1064,9 @@ void AiPage::resized()
     genPanel     = juce::Rectangle<float> (0.0f, 458.0f, 560.0f, 234.0f) * sc;
     datasetPanel = juce::Rectangle<float> (566.0f, 458.0f, 582.0f, 234.0f) * sc;
     waveformArea = juce::Rectangle<float> (16.0f, 236.0f, 1116.0f, 90.0f) * sc;
+
+    if (loraDialog != nullptr)
+        loraDialog->setBounds (getLocalBounds());
 }
 
 //==============================================================================
@@ -1099,6 +1409,50 @@ void AiPage::timerCallback()
 
     if (cancelButton != nullptr)
         cancelButton->setEnabled (busy);
+
+    if (loraTraining)
+    {
+        const auto adapter = pendingLoraDir.getChildFile ("adapter_model.safetensors");
+        const bool ready = adapter.existsAsFile()
+                           && adapter.getSize() > 1024
+                           && adapter.getLastModificationTime().toMilliseconds()
+                                  >= loraTrainingStartMs - 2000;
+        const auto elapsed = juce::Time::getCurrentTime().toMilliseconds()
+                             - loraTrainingStartMs;
+
+        if (ready)
+        {
+            loraTraining = false;
+
+            if (loraTrainButton != nullptr)
+                loraTrainButton->setButtonText ("TRAIN LORA");
+
+            refreshLoras();
+
+            for (int i = 0; i < loras.size(); ++i)
+            {
+                if (loras[i] == pendingLoraDir.getFullPathName())
+                {
+                    loraBox->setSelectedId (i + 2, juce::dontSendNotification);
+                    break;
+                }
+            }
+
+            applyLora();
+
+            processor.setStatusMessage ("LORA READY: " + pendingLoraName
+                                        + "  -  GENERATE TO HEAR IT");
+        }
+        else if (elapsed > 4.0 * 60.0 * 60.0 * 1000.0)
+        {
+            loraTraining = false;
+
+            if (loraTrainButton != nullptr)
+                loraTrainButton->setButtonText ("TRAIN LORA");
+
+            processor.setStatusMessage ("LORA TRAINING STOPPED OR STILL RUNNING - SEE Training\\runs");
+        }
+    }
 
     repaint (enginePanel.toNearestInt());
     repaint (waveformArea.toNearestInt());
