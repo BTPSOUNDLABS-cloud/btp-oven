@@ -1,4 +1,5 @@
 #include "AiPage.h"
+#include "ModelPaths.h"
 
 namespace
 {
@@ -67,6 +68,22 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
     lyricsEditor->setTextToShowWhenEmpty ("lyrics (optional - leave empty for instrumental)", lime.withAlpha (0.45f));
     addAndMakeVisible (*lyricsEditor);
 
+    presetBox = std::make_unique<juce::ComboBox> ("master presets");
+    presetBox->setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff080a08));
+    presetBox->setColour (juce::ComboBox::textColourId, OvenLookAndFeel::cream());
+    presetBox->setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff2a2e33));
+    presetBox->setColour (juce::ComboBox::arrowColourId, lime);
+    presetBox->setTooltip ("Master presets: R&B and dark trap tracks, loops and vocals");
+    addAndMakeVisible (*presetBox);
+
+    presetBox->onChange = [this]
+    {
+        const int index = presetBox->getSelectedId() - 2;
+
+        if (index >= 0 && index < masterPresets.size())
+            applyPreset (index);
+    };
+
     //==========================================================================
     // Generation controls
     durationSlider  = addControlKnob ("DURATION", { 18.0f, 494.0f, 100.0f, 84.0f });
@@ -108,20 +125,49 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
     addAction ("TRAIN", { 400.0f, 592.0f, 100.0f, 42.0f },
                [this]
                {
-                   if (processor.getAiResult().getNumSamples() < 64)
+                   // Prefer the current AI take. If there isn't one, capture the
+                   // loop that is currently selected so TRAIN always does something.
+                   juce::AudioBuffer<float> audio;
+                   double rate = 48000.0;
+                   juce::String kind;
+                   juce::String prompt = processor.getAiResultPrompt();
+
+                   if (processor.getAiResult().getNumSamples() >= 64)
                    {
-                       processor.setStatusMessage ("NO AI TAKE TO CAPTURE YET");
+                       audio = processor.getAiResult();
+                       kind  = processor.getAiResultLyrics().isNotEmpty() ? "Vocals" : "Loops";
+                   }
+                   else
+                   {
+                       const int active = juce::jlimit (0, 2, (int) std::lround (
+                           processor.apvts.getRawParameterValue ("active_loop")->load() * 2.0f));
+
+                       if (processor.getLoopAudio (active, audio, rate))
+                       {
+                           kind = "Loops";
+                           prompt = "Loop " + juce::String (active == 0 ? "A" : active == 1 ? "B" : "C");
+                       }
+                   }
+
+                   if (audio.getNumSamples() < 64)
+                   {
+                       processor.setStatusMessage ("GENERATE A TAKE OR LOAD A LOOP FIRST, THEN TRAIN");
                        return;
                    }
 
-                   const bool isVocal = processor.getAiResultLyrics().isNotEmpty();
-                   const auto f = btpai::saveTrainingCapture (
-                       processor.getAiResult(), 48000.0, isVocal ? "Vocals" : "Loops",
-                       {}, processor.getAiResultPrompt());
+                   const auto f = btpai::saveTrainingCapture (audio, rate, kind, {}, prompt);
 
-                   processor.setStatusMessage (f.existsAsFile()
-                                               ? juce::String ("CAPTURED ") + (isVocal ? "VOCAL" : "LOOP") + " -> " + f.getFileName()
-                                               : "CAPTURE FAILED");
+                   // Make sure the LoRA drop-folder exists so the picker is never
+                   // silently empty, then rescan it.
+                   btpai::getLoraDir().createDirectory();
+                   refreshLoras();
+
+                   processor.setStatusMessage (
+                       f.existsAsFile()
+                           ? juce::String ("CAPTURED ") + kind.toUpperCase()
+                               + " -> " + f.getFullPathName()
+                               + "  (READY FOR LORA TRAINING)"
+                           : "CAPTURE FAILED");
                });
 
     //==========================================================================
@@ -206,6 +252,7 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
     loraBox->setColour (juce::ComboBox::textColourId, lime);
     loraBox->setColour (juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
     loraBox->setColour (juce::ComboBox::arrowColourId, lime);
+    loraBox->setTooltip ("LoRAs found in " + btpai::getLoraDir().getFullPathName());
     addAndMakeVisible (*loraBox);
 
     loraScaleSlider = std::make_unique<juce::Slider>();
@@ -219,10 +266,26 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
     loraScaleSlider->setTooltip ("LoRA strength");
     addAndMakeVisible (*loraScaleSlider);
 
-    addAction ("APPLY", { 1014.0f, 644.0f, 116.0f, 28.0f }, [this] { applyLora(); });
+    addAction ("LORA DIR", { 914.0f, 644.0f, 100.0f, 28.0f },
+               [this]
+               {
+                   auto dir = btpai::getLoraDir();
+
+                   if (! dir.isDirectory())
+                       dir.createDirectory();
+
+                   dir.revealToUser();
+                   refreshLoras();
+
+                   processor.setStatusMessage ("LORA FOLDER -> " + dir.getFullPathName()
+                                               + "  (DROP .SAFETENSORS HERE)");
+               });
+
+    addAction ("APPLY", { 1020.0f, 644.0f, 112.0f, 28.0f }, [this] { applyLora(); });
 
     refreshDatasets();
     refreshLoras();
+    loadMasterPresets();
 
     startTimerHz (10);
 }
@@ -329,6 +392,109 @@ void AiPage::refreshLoras()
     }
 
     loraBox->setSelectedId (selectedId, juce::dontSendNotification);
+}
+
+//==============================================================================
+void AiPage::loadMasterPresets()
+{
+    masterPresets.clear();
+
+    if (presetBox == nullptr)
+        return;
+
+    presetBox->clear();
+    presetBox->addItem ("LOAD A PRESET  (R&B / DARK TRAP)", 1);
+
+    // Installed location first, then the user-editable copy, then the build tree.
+    juce::Array<juce::File> candidates;
+    candidates.add (btppaths::getTrainingDir().getChildFile ("manifests").getChildFile ("master.json"));
+    candidates.add (btppaths::getConfigDir().getChildFile ("master.json"));
+    candidates.add (juce::File::getSpecialLocation (juce::File::currentApplicationFile)
+                        .getParentDirectory().getChildFile ("manifests").getChildFile ("master.json"));
+    candidates.add (juce::File::getCurrentWorkingDirectory().getChildFile ("Packaging")
+                        .getChildFile ("manifests").getChildFile ("master.json"));
+
+    juce::File source;
+
+    for (const auto& f : candidates)
+    {
+        if (f.existsAsFile())
+        {
+            source = f;
+            break;
+        }
+    }
+
+    if (! source.existsAsFile())
+    {
+        presetBox->setSelectedId (1, juce::dontSendNotification);
+        return;
+    }
+
+    const auto parsed = juce::JSON::parse (source);
+
+    if (auto* root = parsed.getDynamicObject())
+    {
+        const auto presets = root->getProperty ("presets");
+
+        if (auto* array = presets.getArray())
+        {
+            for (const auto& entry : *array)
+            {
+                auto* obj = entry.getDynamicObject();
+
+                if (obj == nullptr)
+                    continue;
+
+                masterPresets.add (entry);
+
+                const auto category = obj->getProperty ("category").toString().toUpperCase();
+                const auto name = obj->getProperty ("name").toString();
+
+                presetBox->addItem ("[" + category + "]  " + name,
+                                    masterPresets.size() + 1);
+            }
+        }
+    }
+
+    presetBox->setSelectedId (1, juce::dontSendNotification);
+    presetBox->setTooltip ("Loaded " + juce::String (masterPresets.size())
+                           + " presets from " + source.getFullPathName());
+}
+
+void AiPage::applyPreset (int index)
+{
+    if (index < 0 || index >= masterPresets.size())
+        return;
+
+    auto* obj = masterPresets[index].getDynamicObject();
+
+    if (obj == nullptr)
+        return;
+
+    promptEditor->setText (obj->getProperty ("prompt").toString(), false);
+    lyricsEditor->setText (obj->getProperty ("lyrics").toString(), false);
+
+    if (obj->hasProperty ("duration"))
+        durationSlider->setValue ((double) obj->getProperty ("duration"), juce::dontSendNotification);
+
+    if (obj->hasProperty ("steps"))
+        stepsSlider->setValue ((double) obj->getProperty ("steps"), juce::dontSendNotification);
+
+    if (obj->hasProperty ("guidance"))
+        guidanceSlider->setValue ((double) obj->getProperty ("guidance"), juce::dontSendNotification);
+
+    if (obj->hasProperty ("bpm"))
+        bpmSlider->setValue ((double) obj->getProperty ("bpm"), juce::dontSendNotification);
+
+    if (obj->hasProperty ("seed"))
+        seedSlider->setValue ((double) obj->getProperty ("seed"), juce::dontSendNotification);
+
+    if (vocalsButton != nullptr)
+        vocalsButton->setToggleState ((double) obj->getProperty ("with_vocals") != 0.0,
+                                      juce::dontSendNotification);
+
+    processor.setStatusMessage ("PRESET -> " + obj->getProperty ("name").toString().toUpperCase());
 }
 
 //==============================================================================
@@ -576,11 +742,14 @@ void AiPage::resized()
     }
 
     promptEditor->setBounds (R (14.0f, 32.0f, 672.0f, 94.0f));
-    lyricsEditor->setBounds (R (14.0f, 146.0f, 672.0f, 30.0f));
+    lyricsEditor->setBounds (R (14.0f, 146.0f, 672.0f, 26.0f));
+
+    if (presetBox != nullptr)
+        presetBox->setBounds (R (14.0f, 174.0f, 672.0f, 18.0f));
 
     datasetList->setBounds (R (580.0f, 488.0f, 554.0f, 96.0f));
-    loraBox->setBounds (R (580.0f, 644.0f, 300.0f, 28.0f));
-    loraScaleSlider->setBounds (R (888.0f, 644.0f, 120.0f, 28.0f));
+    loraBox->setBounds (R (566.0f, 644.0f, 240.0f, 28.0f));
+    loraScaleSlider->setBounds (R (812.0f, 644.0f, 96.0f, 28.0f));
 
     promptPanel  = juce::Rectangle<float> (0.0f, 0.0f, 700.0f, 196.0f) * sc;
     enginePanel  = juce::Rectangle<float> (706.0f, 0.0f, 442.0f, 196.0f) * sc;
@@ -648,7 +817,7 @@ void AiPage::paint (juce::Graphics& g)
     // LoRA scale label
     g.setColour (OvenLookAndFeel::cream().withAlpha (0.5f));
     g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.0f, 8.5f * sc), juce::Font::bold)));
-    g.drawText ("SCALE", R (888.0f, 634.0f, 120.0f, 12.0f), juce::Justification::centredLeft, false);
+    g.drawText ("SCALE", R (812.0f, 634.0f, 96.0f, 12.0f), juce::Justification::centredLeft, false);
 
     // Dataset summary
     if (selectedDataset >= 0 && selectedDataset < datasets.size())

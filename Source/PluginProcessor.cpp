@@ -200,6 +200,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout BtPOvenAudioProcessor::creat
     addBool  (layout, P::Rearrange, "Rearrange", false);
     addInt   (layout, P::ShuffleSeed, "Rearrange Seed", 0, 999, 1);
     addFloat (layout, P::Bpm, "Tempo", 60.0f, 200.0f, 140.0f, 140.0f, 0, " BPM", 1.0f);
+    addBool  (layout, P::BpmSync, "Sync To Host Tempo", true);
 
     // Five-band EQ ----------------------------------------------------------
     addBool  (layout, P::EqOn, "EQ On", false);
@@ -449,6 +450,7 @@ btp::Values BtPOvenAudioProcessor::readValues() const
     v.rearrange   = load (P::Rearrange) > 0.5f;
     v.shuffleSeed = juce::jlimit (0, 999, (int) std::lround (load (P::ShuffleSeed)));
     v.bpm         = load (P::Bpm);
+    v.bpmSync     = load (P::BpmSync) > 0.5f;
 
     v.eqOn      = load (P::EqOn) > 0.5f;
     v.eqLow     = load (P::EqLow);
@@ -558,6 +560,39 @@ void BtPOvenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     //==========================================================================
     Values v = readValues();
 
+    // A Stop request rewinds every loop voice to the start of its region.
+    if (transportReset.exchange (false, std::memory_order_relaxed))
+        for (auto& voice : voices)
+            voice.reset();
+
+    //==========================================================================
+    // Tempo: follow the DAW when the host provides one, otherwise use the
+    // manual BPM control.  The effective value is broadcast to the editor.
+    if (v.bpmSync)
+    {
+        float hostBpm = 0.0f;
+
+        if (auto* playhead = getPlayHead())
+            if (const auto position = playhead->getPosition())
+                if (const auto bpm = position->getBpm())
+                    hostBpm = (float) *bpm;
+
+        const bool hostValid = hostBpm >= 20.0f && hostBpm <= 300.0f;
+        hostTempoActive.store (hostValid, std::memory_order_relaxed);
+
+        if (hostValid)
+            v.bpm = juce::jlimit (40.0f, 240.0f, hostBpm);
+    }
+    else
+    {
+        hostTempoActive.store (false, std::memory_order_relaxed);
+    }
+
+    effectiveBpm.store (v.bpm, std::memory_order_relaxed);
+
+    const bool transportRunning = v.playing
+                               && ! transportPaused.load (std::memory_order_relaxed);
+
     const double phase = (double) automationPhase.load (std::memory_order_relaxed);
 
     if (v.fxPlay && fxRecorder.hasData())
@@ -657,9 +692,9 @@ void BtPOvenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     if (v.cBypass)
         bypassLoop (opts[2], loopValues[2]);
 
-    const bool playA = v.playing && v.aPlay && contentA;
-    const bool playB = v.playing && v.bPlay && contentB;
-    const bool playC = v.playing && v.cPlay && contentC;
+    const bool playA = transportRunning && v.aPlay && contentA;
+    const bool playB = transportRunning && v.bPlay && contentB;
+    const bool playC = transportRunning && v.cPlay && contentC;
 
     int numPlaying = (playA ? 1 : 0) + (playB ? 1 : 0) + (playC ? 1 : 0);
 
@@ -676,13 +711,13 @@ void BtPOvenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
     {
         float aL = 0.0f, aR = 0.0f, bL = 0.0f, bR = 0.0f, cL = 0.0f, cR = 0.0f;
 
-        if (contentA)
+        if (contentA && transportRunning)
             voices[0].renderNext (loops[0], loopValues[0], opts[0], currentSampleRate, aL, aR);
 
-        if (contentB)
+        if (contentB && transportRunning)
             voices[1].renderNext (loops[1], loopValues[1], opts[1], currentSampleRate, bL, bR);
 
-        if (contentC)
+        if (contentC && transportRunning)
             voices[2].renderNext (loops[2], loopValues[2], opts[2], currentSampleRate, cL, cR);
 
         const float ga = loopGainA.getNextValue() * bothScale;
@@ -1195,6 +1230,45 @@ float BtPOvenAudioProcessor::getWaveformPeak (int loopIndex, int point, int numP
 float BtPOvenAudioProcessor::getPlayheadPhase (int loopIndex) const
 {
     return (loopIndex >= 0 && loopIndex <= 2) ? voices[(size_t) loopIndex].getPhase() : 0.0f;
+}
+
+//==============================================================================
+void BtPOvenAudioProcessor::playTransport()
+{
+    const auto* p = apvts.getRawParameterValue (btp::keyOf (btp::P::Playing));
+    const bool wasRunning = p != nullptr && p->load (std::memory_order_relaxed) > 0.5f;
+
+    transportPaused.store (false, std::memory_order_relaxed);
+
+    if (auto* param = apvts.getParameter (btp::keyOf (btp::P::Playing)))
+        param->setValueNotifyingHost (1.0f);
+
+    // Pressing Play after a Stop starts again from the top of the region.
+    // Resuming from Pause keeps the frozen playhead where it is.
+    if (! wasRunning)
+        transportReset.store (true, std::memory_order_relaxed);
+}
+
+void BtPOvenAudioProcessor::pauseTransport()
+{
+    // Keep the Playing parameter on so Play can resume without rewinding.
+    transportPaused.store (true, std::memory_order_relaxed);
+}
+
+void BtPOvenAudioProcessor::stopTransport()
+{
+    transportPaused.store (false, std::memory_order_relaxed);
+    transportReset.store (true, std::memory_order_relaxed);
+
+    if (auto* p = apvts.getParameter (btp::keyOf (btp::P::Playing)))
+        p->setValueNotifyingHost (0.0f);
+}
+
+bool BtPOvenAudioProcessor::isTransportPlaying() const noexcept
+{
+    const auto* p = apvts.getRawParameterValue (btp::keyOf (btp::P::Playing));
+    return p != nullptr && p->load (std::memory_order_relaxed) > 0.5f
+        && ! transportPaused.load (std::memory_order_relaxed);
 }
 
 //==============================================================================

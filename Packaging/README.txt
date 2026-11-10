@@ -113,8 +113,16 @@ Open the standalone (desktop shortcut) or load the VST3 in your DAW.
 The header buttons switch pages:
 
    NUKED | RACK | AI | STEM | SHOTS | VOICE
-     A   |   B   |   C            (loop selectors)
+   PLAY | PAUSE | STOP
+     A  |   B   |   C            (loop selectors)
+   SYNC  [140 BPM]               (tempo)
      IN / OUT knobs
+
+PLAY / PAUSE / STOP and the tempo controls live in the header, so they
+work on every page.  PAUSE freezes the loop playheads; STOP rewinds them
+to the start of the region.  SYNC follows the DAW tempo when the host
+provides one; turn SYNC off (or use a host with no tempo) to use the
+manual BPM box.
 
 
 ----------------------------------------------------------------
@@ -133,11 +141,18 @@ Prompt -> music.
   BPM         tempo hint
   SEED        lock a seed to reproduce a take
   VOCALS      toggle the 4B LM: writes lyrics + sung vocals
+  PRESET      load a master preset (R&B / dark trap tracks, loops, vocals)
+
+The PRESET box reads  master.json  from
+%APPDATA%\BtP Oven\Training\manifests\ .  It ships with 15 starting
+points across tracks, loops and vocals; edit the JSON to add your own.
+Loading a preset only fills the prompt, lyrics and generator settings -
+it never changes your models, datasets or the NUKED state.
 
 Buttons:
   GENERATE    start
   CANCEL      stop
-  TRAIN       save this take to the training folder
+  TRAIN       capture this take (or the selected loop) to the training folder
   TO A/B/C    send the take into a sampler loop
 
 The AI GEN page uses Loop C for preview, with its own Play /
@@ -189,10 +204,15 @@ Voice conversion (RVC).
 
   USE A/B/C   take the current loop as the source
   LOAD FILE   or pick a vocal file
+  IN / OUT    trim the source vocal before conversion
   VOICE       choose a .onnx voice from Models\RVC\voices
   CONVERT     run the conversion
   TO A/B/C    send the converted vocal to a loop
   TRAIN&SAVE  copy the result to Training\Vocals
+
+  The IN / OUT sliders under the source waveform set the exact section
+  that gets converted (0-100%).  The source waveform shows the trimmed
+  section bright and dims the rest.
 
   The result keeps the melody and timing of the source and takes the
   timbre of the chosen voice.  Works best on dry, isolated vocals.
@@ -248,7 +268,16 @@ Every AI page has a capture button ("TRAIN", "TRAIN & SAVE",
 Everything lands under:
   %APPDATA%\BtP Oven\Training\
 
-Capturing is instant and happens inside the plugin.
+Capturing is instant and happens inside the plugin.  TRAIN on the AI
+page captures the current AI take, or the selected loop if there is no
+take yet, and shows the full saved path in the status line.
+
+LoRAs are discovered in:
+  %APPDATA%\BtP Oven\LoRAs\
+Drop .safetensors files there (or in the plugin's Models folder) and
+press LORA DIR on the AI page to open the folder.  The LoRA picker
+rescans when the page opens, after TRAIN and when LORA DIR is pressed.
+
 Actual neural training (RVC, RAVE, LoRA) is a separate one-time
 script run, because it takes 30-60+ minutes on a GPU.
 
@@ -354,6 +383,8 @@ audio is yours or royalty-free.
   Config          %APPDATA%\BtP Oven\
   Models          %APPDATA%\BtP Oven\Models\
   Training        %APPDATA%\BtP Oven\Training\
+  Presets         %APPDATA%\BtP Oven\Training\manifests\master.json
+  LoRAs           %APPDATA%\BtP Oven\LoRAs\
   Legal           %APPDATA%\BtP Oven\Legal\
   One-shot lib    chosen in the SHOTS page
 

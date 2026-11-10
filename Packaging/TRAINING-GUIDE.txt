@@ -160,14 +160,16 @@ Which button writes where:
   ----------------------------------------------------------
   VOICE    TRAIN & SAVE  Training\Vocals
   AI GEN   TRAIN         Training\Loops
-                          (Training\Vocals if the take was sung)
+                          (Training\Vocals if the take was sung,
+                           or the selected loop when there is no take)
   SHOTS    TRAIN         Training\OneShots\<selected category>
   SHOTS    TRAIN VAR     Training\Variants
   STEM     TRAIN (row)   Training\Stems\<drums|bass|other|vocals>
 
 File names are automatic:
   <slug of your prompt>_<timestamp>.wav
-so nothing overwrites anything.
+so nothing overwrites anything.  The status line shows the full path
+after every capture.
 
 
 ----------------------------------------------------------------
@@ -309,6 +311,13 @@ The plugin already has a LoRA slot and scale control on the AI GEN
 page, but the fine-tuning pipeline is not part of this release.
 Your captured Loops are the dataset you would use later.
 
+LoRA discovery runs on AI-page open, after TRAIN, and when LORA DIR is
+pressed.  It scans:
+  %APPDATA%\BtP Oven\LoRAs\           (drop .safetensors here)
+  <ACE-Step model folder>\            (optional second location)
+LORA DIR creates the folder and opens it in Explorer, so an empty
+picker is never a mystery.
+
 Recommended capture set for a style LoRA:
   * 30-120 loops of the same style / tempo family
   * clean intros, no long silence
@@ -330,6 +339,15 @@ automation later.
   manifests\stems.json             Demucs stem separation
   manifests\rvc_voice.json         RVC voice training
   manifests\rave_variant.json      RAVE latent mutation
+  manifests\master.json            15 ready presets (R&B / dark trap)
+
+master.json is different from the other manifests: the AI GEN page reads
+it at startup and fills the PRESET picker.  It covers tracks, loops and
+vocals for R&B and dark trap.  Add your own entries to the "presets"
+array (id, category, style, name, bpm, duration, steps, guidance, seed,
+prompt, lyrics, with_vocals) and reopen the AI page.  A copy in
+%APPDATA%\BtP Oven\Training\manifests\master.json overrides the bundled
+one.
 
 MINIMAL EXAMPLE (rvc_voice.json):
 

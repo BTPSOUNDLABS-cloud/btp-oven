@@ -139,8 +139,6 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
     dubB = addButton ("DUB B", { 328.0f, 508.0f, 94.0f, 34.0f },
                       [this] { toggleRecord (1, true); }, false, true);
 
-    addParamButton ("playing", "PLAY", { 428.0f, 508.0f, 94.0f, 34.0f });
-
     addButton ("LOAD A",   { 28.0f, 548.0f, 78.0f, 30.0f }, [this] { loadLoopFile (0); }, false);
     addButton ("LOAD B",   { 111.0f, 548.0f, 78.0f, 30.0f }, [this] { loadLoopFile (1); }, false);
     addButton ("SAVE A",   { 194.0f, 548.0f, 78.0f, 30.0f }, [this] { exportLoopFile (0); }, false);
@@ -217,7 +215,7 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
 
     //==========================================================================
     // Header: loop select + I/O
-    nukeButton = addButton ("NUKED", { 414.0f, 20.0f, 60.0f, 34.0f },
+    nukeButton = addButton ("NUKED", { 340.0f, 20.0f, 50.0f, 34.0f },
                             [this]
                             {
                                 processor.nuke();
@@ -225,27 +223,41 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
                             },
                             false, true, true);
 
-    rackButton = addButton ("RACK", { 478.0f, 20.0f, 56.0f, 34.0f },
+    rackButton = addButton ("RACK", { 394.0f, 20.0f, 44.0f, 34.0f },
                             [this] { toggleRackPage(); },
                             false, false, true);
 
-    aiButton = addButton ("AI", { 538.0f, 20.0f, 50.0f, 34.0f },
+    aiButton = addButton ("AI", { 442.0f, 20.0f, 40.0f, 34.0f },
                           [this] { toggleAiPage(); },
                           false, false, true);
 
-    stemButton = addButton ("STEM", { 592.0f, 20.0f, 52.0f, 34.0f },
+    stemButton = addButton ("STEM", { 486.0f, 20.0f, 44.0f, 34.0f },
                             [this] { toggleStemPage(); },
                             false, false, true);
 
-    oneShotButton = addButton ("SHOTS", { 648.0f, 20.0f, 54.0f, 34.0f },
+    oneShotButton = addButton ("SHOTS", { 534.0f, 20.0f, 48.0f, 34.0f },
                                [this] { toggleOneShotPage(); },
                                false, false, true);
 
-    rvcButton = addButton ("VOICE", { 706.0f, 20.0f, 56.0f, 34.0f },
+    rvcButton = addButton ("VOICE", { 586.0f, 20.0f, 44.0f, 34.0f },
                            [this] { toggleRvcPage(); },
                            false, false, true);
 
-    loopA = addButton ("A", { 768.0f, 22.0f, 30.0f, 30.0f },
+    //==========================================================================
+    // Global transport: visible on every page.
+    playButton = addButton ("PLAY", { 634.0f, 20.0f, 44.0f, 34.0f },
+                            [this] { processor.playTransport(); repaint(); },
+                            false, false, true);
+
+    pauseButton = addButton ("PAUSE", { 682.0f, 20.0f, 44.0f, 34.0f },
+                             [this] { processor.pauseTransport(); repaint(); },
+                             false, false, true);
+
+    stopButton = addButton ("STOP", { 730.0f, 20.0f, 44.0f, 34.0f },
+                            [this] { processor.stopTransport(); repaint(); },
+                            false, false, true);
+
+    loopA = addButton ("A", { 784.0f, 22.0f, 24.0f, 30.0f },
                        [this]
                        {
                            processor.apvts.getParameter ("active_loop")->setValueNotifyingHost (0.0f);
@@ -253,7 +265,7 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
                        true, false, true);
     loopA->setRadioGroupId (7001);
 
-    loopB = addButton ("B", { 802.0f, 22.0f, 30.0f, 30.0f },
+    loopB = addButton ("B", { 812.0f, 22.0f, 24.0f, 30.0f },
                        [this]
                        {
                            processor.apvts.getParameter ("active_loop")->setValueNotifyingHost (0.5f);
@@ -261,7 +273,7 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
                        true, false, true);
     loopB->setRadioGroupId (7001);
 
-    loopC = addButton ("C", { 836.0f, 22.0f, 30.0f, 30.0f },
+    loopC = addButton ("C", { 840.0f, 22.0f, 24.0f, 30.0f },
                        [this]
                        {
                            processor.apvts.getParameter ("active_loop")->setValueNotifyingHost (1.0f);
@@ -269,8 +281,26 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
                        true, false, true);
     loopC->setRadioGroupId (7001);
 
-    addKnob ("in_gain",  "IN",  { 872.0f, 2.0f, 44.0f, 72.0f }, true);
-    addKnob ("out_gain", "OUT", { 920.0f, 2.0f, 44.0f, 72.0f }, true);
+    bpmSyncButton = addParamButton ("bpm_sync", "SYNC", { 868.0f, 20.0f, 54.0f, 34.0f },
+                                    false, true);
+    bpmSyncButton->setTooltip ("Follow the DAW tempo (off = use the manual BPM control)");
+
+    bpmBar = std::make_unique<juce::Slider>();
+    bpmBar->setSliderStyle (juce::Slider::LinearBar);
+    bpmBar->setRange (60.0, 200.0, 1.0);
+    bpmBar->setTextValueSuffix (" BPM");
+    bpmBar->setColour (juce::Slider::trackColourId, OvenLookAndFeel::lime().withAlpha (0.18f));
+    bpmBar->setColour (juce::Slider::textBoxTextColourId, OvenLookAndFeel::lime());
+    bpmBar->setColour (juce::Slider::textBoxBackgroundColourId, juce::Colour (0xff101215));
+    bpmBar->setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    bpmBar->setTooltip ("Manual tempo (active when SYNC is off or the host has no tempo)");
+    addAndMakeVisible (*bpmBar);
+
+    bpmBarAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        processor.apvts, "bpm", *bpmBar);
+
+    addKnob ("in_gain",  "IN",  { 990.0f, 2.0f, 40.0f, 72.0f }, true);
+    addKnob ("out_gain", "OUT", { 1034.0f, 2.0f, 40.0f, 72.0f }, true);
 
     //==========================================================================
     setResizable (true, true);
@@ -358,9 +388,10 @@ juce::TextButton* BtPOvenAudioProcessorEditor::addButton (const juce::String& te
 juce::TextButton* BtPOvenAudioProcessorEditor::addParamButton (const juce::String& parameterId,
                                                                const juce::String& text,
                                                                juce::Rectangle<float> designArea,
-                                                               bool danger)
+                                                               bool danger,
+                                                               bool keepVisible)
 {
-    auto* button = addButton (text, designArea, nullptr, true, danger, false);
+    auto* button = addButton (text, designArea, nullptr, true, danger, keepVisible);
 
     buttonAttachments.push_back (std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         processor.apvts, parameterId, *button));
@@ -504,7 +535,7 @@ void BtPOvenAudioProcessorEditor::resized()
     panelFilters   = S (856.0f, 478.0f, 306.0f, 200.0f);
     panelFx        = S (16.0f, 686.0f, 1146.0f, 90.0f);
 
-    meterArea     = S (996.0f, 26.0f, 164.0f, 26.0f);
+    meterArea     = S (1080.0f, 26.0f, 80.0f, 26.0f);
     laneStripArea = S (508.0f, 712.0f, 640.0f, 48.0f);
     statusArea    = S (28.0f, 638.0f, 496.0f, 30.0f);
 
@@ -533,6 +564,9 @@ void BtPOvenAudioProcessorEditor::resized()
 
     if (chopDivBox != nullptr)
         chopDivBox->setBounds (S (736.0f, 410.0f, 92.0f, 24.0f));
+
+    if (bpmBar != nullptr)
+        bpmBar->setBounds (S (926.0f, 24.0f, 60.0f, 26.0f));
 }
 
 //==============================================================================
@@ -795,13 +829,13 @@ void BtPOvenAudioProcessorEditor::paintHeader (juce::Graphics& g)
     // Loop selector caption
     g.setColour (OvenLookAndFeel::cream().withAlpha (0.5f));
     g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.5f, 9.0f * sc), juce::Font::bold)));
-    g.drawText ("ACTIVE LOOP", juce::Rectangle<float> (780.0f * sc, 4.0f * sc, 110.0f * sc, 14.0f * sc),
+    g.drawText ("ACTIVE LOOP", juce::Rectangle<float> (784.0f * sc, 4.0f * sc, 78.0f * sc, 14.0f * sc),
                 juce::Justification::centredLeft, false);
 
     // Meter caption
     g.setColour (OvenLookAndFeel::cream().withAlpha (0.45f));
     g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.5f, 8.5f * sc), juce::Font::bold)));
-    g.drawText ("OUTPUT", juce::Rectangle<float> (996.0f * sc, 8.0f * sc, 164.0f * sc, 12.0f * sc),
+    g.drawText ("OUTPUT", juce::Rectangle<float> (1080.0f * sc, 8.0f * sc, 80.0f * sc, 12.0f * sc),
                 juce::Justification::centredLeft, false);
 }
 
@@ -1039,6 +1073,38 @@ void BtPOvenAudioProcessorEditor::timerCallback()
 
     if (loopC != nullptr)
         loopC->setToggleState (active == 2, juce::dontSendNotification);
+
+    // Transport state (global, every page)
+    const bool transportPlaying = processor.isTransportPlaying();
+    const bool transportPaused  = processor.isTransportPaused();
+
+    if (playButton != nullptr)
+        playButton->setToggleState (transportPlaying, juce::dontSendNotification);
+
+    if (pauseButton != nullptr)
+        pauseButton->setToggleState (transportPaused, juce::dontSendNotification);
+
+    if (stopButton != nullptr)
+        stopButton->setToggleState (! transportPlaying && ! transportPaused,
+                                    juce::dontSendNotification);
+
+    if (bpmBar != nullptr)
+    {
+        const auto* bpmParam = processor.apvts.getRawParameterValue ("bpm");
+        const auto* syncParam = processor.apvts.getRawParameterValue ("bpm_sync");
+
+        const bool synced = syncParam != nullptr && syncParam->load() > 0.5f
+                         && processor.isHostTempoActive();
+
+        const float shown = synced ? processor.getEffectiveBpm()
+                                   : (bpmParam != nullptr ? bpmParam->load() : 140.0f);
+
+        if (std::abs ((float) bpmBar->getValue() - shown) > 0.05f)
+            bpmBar->setValue (shown, juce::dontSendNotification);
+
+        bpmBar->setColour (juce::Slider::textBoxTextColourId,
+                           synced ? juce::Colour (0xff8fe6c8) : OvenLookAndFeel::lime());
+    }
 
     repaint (meterArea);
     repaint (laneStripArea);

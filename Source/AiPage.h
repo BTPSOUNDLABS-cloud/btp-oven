@@ -74,6 +74,8 @@ private:
 
     void refreshDatasets();
     void refreshLoras();
+    void loadMasterPresets();
+    void applyPreset (int index);
     void generate();
     void applyLora();
     void pickModelDir();
@@ -101,6 +103,7 @@ private:
 
     std::unique_ptr<juce::TextEditor> promptEditor;
     std::unique_ptr<juce::TextEditor> lyricsEditor;
+    std::unique_ptr<juce::ComboBox> presetBox;
     std::unique_ptr<juce::ListBox> datasetList;
     std::unique_ptr<juce::ComboBox> loraBox;
     std::unique_ptr<juce::Label> loraScaleLabel;
@@ -120,6 +123,7 @@ private:
 
     juce::Array<btpai::DatasetInfo> datasets;
     juce::StringArray loras;
+    juce::Array<juce::var> masterPresets;
     AiEngine::Models currentModels;
 
     juce::Rectangle<float> promptPanel, enginePanel, lanePanel, genPanel, datasetPanel;

@@ -17,5 +17,14 @@ Update (2026-11-07): train_voice.py now trains RVC voices on Windows
 with CUDA torch. Fixes a crash caused by single-GPU DDP and the ONNX
 export step. See TRAINING-GUIDE.txt section 0 for the tested setup.
 
+Update (2026-11-09): global PLAY / PAUSE / STOP in the header on every
+page (pause freezes the loop playheads, stop rewinds them); DAW tempo
+sync plus a manual BPM box; draggable region handles on the oven
+waveform; IN / OUT trim sliders on the VOICE page source vocal;
+master.json preset bank (15 R&B / dark trap tracks, loops and vocals)
+in the AI page; TRAIN now captures the selected loop when there is no
+AI take and shows the saved path; LORA DIR opens the LoRA folder and
+rescans it.
+
 SHA-256 (BtP-Oven-1.0.0.zip):
-FD1E79C1D7718750C8BA276736ED46724584749EFDAF4E9539DADE593955FD28
+0E4E29CE1ED7D9AEC977EDCB4B6E677A6CDD60653BE563D316E9AD7005E5DF2E

@@ -38,6 +38,7 @@ private:
     void loadSourceFile();
     void convert();
     void refreshVoices();
+    void resetTrim();
 
     void paintPanel (juce::Graphics&, juce::Rectangle<float> design, const juce::String& title,
                      const juce::String& hint = {});
@@ -53,6 +54,9 @@ private:
 
     std::unique_ptr<juce::ComboBox> voiceBox;
     std::unique_ptr<juce::ListBox> voiceList;
+
+    std::unique_ptr<juce::Slider> trimStartSlider;
+    std::unique_ptr<juce::Slider> trimEndSlider;
 
     juce::AudioBuffer<float> sourceBuffer;
     double sourceRate = 44100.0;

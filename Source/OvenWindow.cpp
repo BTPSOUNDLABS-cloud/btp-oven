@@ -132,6 +132,70 @@ void OvenWindow::resized()
     }
 }
 
+void OvenWindow::setRegionFromMouse (const juce::MouseEvent& e, bool forcePick)
+{
+    for (int loop = 0; loop < 2; ++loop)
+    {
+        const auto wave = getWaveBounds (getLaneBounds (loop));
+
+        if (! wave.contains (e.position))
+            continue;
+
+        const float t = juce::jlimit (0.0f, 1.0f,
+                                      (e.position.x - wave.getX()) / juce::jmax (1.0f, wave.getWidth()));
+
+        const char* startKey = loop == 0 ? "a_start" : "b_start";
+        const char* endKey   = loop == 0 ? "a_end"   : "b_end";
+
+        auto* startParam = processor.apvts.getParameter (startKey);
+        auto* endParam   = processor.apvts.getParameter (endKey);
+        if (startParam == nullptr || endParam == nullptr)
+            return;
+
+        const float s = processor.apvts.getRawParameterValue (startKey)->load();
+        const float en = processor.apvts.getRawParameterValue (endKey)->load();
+
+        if (forcePick || loop != dragLoop)
+        {
+            dragStart = std::abs (t - s) <= std::abs (t - en);
+            dragLoop = loop;
+        }
+
+        constexpr float gap = 0.004f;
+
+        if (dragStart)
+        {
+            const float value = juce::jlimit (0.0f, juce::jmax (0.0f, en - gap), t);
+            startParam->setValueNotifyingHost (startParam->convertTo0to1 (value));
+        }
+        else
+        {
+            const float value = juce::jlimit (juce::jmin (1.0f, s + gap), 1.0f, t);
+            endParam->setValueNotifyingHost (endParam->convertTo0to1 (value));
+        }
+
+        repaint();
+        return;
+    }
+}
+
+void OvenWindow::mouseDown (const juce::MouseEvent& e)
+{
+    dragLoop = -1;
+    setRegionFromMouse (e, true);
+}
+
+void OvenWindow::mouseDrag (const juce::MouseEvent& e)
+{
+    if (dragLoop >= 0)
+        setRegionFromMouse (e, false);
+}
+
+void OvenWindow::mouseUp (const juce::MouseEvent&)
+{
+    dragLoop = -1;
+}
+
 void OvenWindow::paint (juce::Graphics& g)
 {
     const auto full = getLocalBounds().toFloat();

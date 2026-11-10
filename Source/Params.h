@@ -25,7 +25,7 @@ enum class P : int
     BStart, BEnd, BLoop,
 
     // Auto chop / rearrange -------------------------------------------------
-    AutoChop, ChopDiv, Rearrange, ShuffleSeed, Bpm,
+    AutoChop, ChopDiv, Rearrange, ShuffleSeed, Bpm, BpmSync,
 
     // Five-band EQ ----------------------------------------------------------
     EqOn, EqLow, EqLowMid, EqMid, EqHighMid, EqHigh,
@@ -72,7 +72,7 @@ inline constexpr const char* kParamKeys[] =
     "a_start", "a_end", "a_loop",
     "b_start", "b_end", "b_loop",
 
-    "autochop", "chop_div", "rearrange", "shuffle_seed", "bpm",
+    "autochop", "chop_div", "rearrange", "shuffle_seed", "bpm", "bpm_sync",
 
     "eq_on", "eq_low", "eq_low_mid", "eq_mid", "eq_high_mid", "eq_high",
 
@@ -170,6 +170,7 @@ struct Values
     bool  rearrange     = false;
     int   shuffleSeed   = 1;
     float bpm           = 140.0f;
+    bool  bpmSync       = true;   // follow the host tempo when it is available
 
     // Five-band EQ -----------------------------------------------------------
     bool  eqOn          = false;

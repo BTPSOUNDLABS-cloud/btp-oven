@@ -54,7 +54,8 @@ private:
                                  std::function<void()> onClick, bool isToggle,
                                  bool danger = false, bool keepVisible = false);
     juce::TextButton* addParamButton (const juce::String& parameterId, const juce::String& text,
-                                      juce::Rectangle<float> designArea, bool danger = false);
+                                      juce::Rectangle<float> designArea, bool danger = false,
+                                      bool keepVisible = false);
 
     void toggleRackPage();
     void toggleAiPage();
@@ -110,6 +111,13 @@ private:
     juce::TextButton* stemButton = nullptr;
     juce::TextButton* oneShotButton = nullptr;
     juce::TextButton* rvcButton = nullptr;
+
+    juce::TextButton* playButton = nullptr;
+    juce::TextButton* pauseButton = nullptr;
+    juce::TextButton* stopButton = nullptr;
+    juce::TextButton* bpmSyncButton = nullptr;
+    std::unique_ptr<juce::Slider> bpmBar;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> bpmBarAttachment;
 
     juce::Rectangle<int> panelCook, panelTiming, panelTransport,
                          panelPitch, panelFilters, panelFx;

@@ -49,6 +49,45 @@ RvcPage::RvcPage (BtPOvenAudioProcessor& p)
     addAction ("USE C", { 192.0f, 40.0f, 80.0f, 28.0f }, [this] { useLoopAsSource (2); });
     addAction ("LOAD FILE", { 278.0f, 40.0f, 120.0f, 28.0f }, [this] { loadSourceFile(); });
 
+    //==========================================================================
+    // Source-vocal trim: these are the two sliders under the source waveform.
+    {
+        auto makeTrim = [this] (const juce::String& tip, juce::Colour colour)
+        {
+            auto slider = std::make_unique<juce::Slider>();
+            slider->setSliderStyle (juce::Slider::LinearHorizontal);
+            slider->setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+            slider->setRange (0.0, 100.0, 0.5);
+            slider->setColour (juce::Slider::backgroundColourId, juce::Colour (0xff1d221b));
+            slider->setColour (juce::Slider::trackColourId, colour.withAlpha (0.55f));
+            slider->setColour (juce::Slider::thumbColourId, colour);
+            slider->setTooltip (tip);
+            slider->onValueChange = [this]
+            {
+                if (trimStartSlider != nullptr && trimEndSlider != nullptr)
+                {
+                    if (trimStartSlider->getValue() > trimEndSlider->getValue() - 0.5)
+                        trimStartSlider->setValue (juce::jmax (0.0, trimEndSlider->getValue() - 0.5),
+                                                   juce::dontSendNotification);
+
+                    if (trimEndSlider->getValue() < trimStartSlider->getValue() + 0.5)
+                        trimEndSlider->setValue (juce::jmin (100.0, trimStartSlider->getValue() + 0.5),
+                                                 juce::dontSendNotification);
+                }
+
+                repaint();
+            };
+            addAndMakeVisible (*slider);
+            return slider;
+        };
+
+        trimStartSlider = makeTrim ("Source vocal start", OvenLookAndFeel::lime());
+        trimEndSlider   = makeTrim ("Source vocal end",   juce::Colour (0xff8fe6c8));
+
+        trimStartSlider->setValue (0.0);
+        trimEndSlider->setValue (100.0);
+    }
+
     // Voice picker
     voiceBox = std::make_unique<juce::ComboBox> ("voice");
     voiceBox->setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff101215));
@@ -156,6 +195,16 @@ void RvcPage::refreshVoices()
     }
 }
 
+void RvcPage::resetTrim()
+{
+    if (trimStartSlider != nullptr)
+        trimStartSlider->setValue (0.0, juce::dontSendNotification);
+
+    if (trimEndSlider != nullptr)
+        trimEndSlider->setValue (100.0, juce::dontSendNotification);
+}
+
+//==============================================================================
 void RvcPage::useLoopAsSource (int loopIndex)
 {
     juce::AudioBuffer<float> audio;
@@ -170,6 +219,7 @@ void RvcPage::useLoopAsSource (int loopIndex)
 
     sourceBuffer = audio;
     sourceRate = sr;
+    resetTrim();
     processor.setStatusMessage ("SOURCE = LOOP " + juce::String (loopIndex == 0 ? "A" : loopIndex == 1 ? "B" : "C"));
     repaint();
 }
@@ -207,6 +257,7 @@ void RvcPage::loadSourceFile()
 
                                    safe->sourceBuffer = audio;
                                    safe->sourceRate = reader->sampleRate;
+                                   safe->resetTrim();
                                    safe->processor.setStatusMessage ("SOURCE = " + file.getFileName());
                                    safe->repaint();
                                });
@@ -236,7 +287,20 @@ void RvcPage::convert()
     const int idx = juce::jlimit (0, voiceFiles.size() - 1, voiceBox->getSelectedItemIndex());
     engine.setVoice (voiceFiles[idx]);
 
-    processor.startVoiceConversion (sourceBuffer, sourceRate);
+    const int total = sourceBuffer.getNumSamples();
+    const int first = juce::jlimit (0, total - 1,
+                                    (int) std::lround ((trimStartSlider->getValue() / 100.0)
+                                                        * (double) total));
+    const int last  = juce::jlimit (first + 1, total,
+                                    (int) std::lround ((trimEndSlider->getValue() / 100.0)
+                                                        * (double) total));
+
+    juce::AudioBuffer<float> trimmed (sourceBuffer.getNumChannels(), last - first);
+
+    for (int ch = 0; ch < trimmed.getNumChannels(); ++ch)
+        trimmed.copyFrom (ch, 0, sourceBuffer, ch, first, trimmed.getNumSamples());
+
+    processor.startVoiceConversion (trimmed, sourceRate);
 }
 
 //==============================================================================
@@ -253,8 +317,14 @@ void RvcPage::resized()
     sourcePanel = juce::Rectangle<float> (0.0f, 0.0f, 700.0f, 300.0f) * sc;
     voicePanel  = juce::Rectangle<float> (706.0f, 0.0f, 442.0f, 300.0f) * sc;
     resultPanel = juce::Rectangle<float> (0.0f, 306.0f, 1148.0f, 386.0f) * sc;
-    sourceWaveArea = juce::Rectangle<float> (20.0f, 80.0f, 660.0f, 200.0f) * sc;
+    sourceWaveArea = juce::Rectangle<float> (20.0f, 80.0f, 660.0f, 180.0f) * sc;
     resultWaveArea = juce::Rectangle<float> (20.0f, 340.0f, 1108.0f, 280.0f) * sc;
+
+    if (trimStartSlider != nullptr)
+        trimStartSlider->setBounds (R (20.0f, 276.0f, 300.0f, 14.0f));
+
+    if (trimEndSlider != nullptr)
+        trimEndSlider->setBounds (R (380.0f, 276.0f, 300.0f, 14.0f));
 }
 
 //==============================================================================
@@ -301,10 +371,44 @@ void RvcPage::paint (juce::Graphics& g)
     {
         paintWave (g, sourceWaveArea.reduced (6.0f * sc), sourceBuffer, OvenLookAndFeel::cream());
 
+        const float t0 = trimStartSlider != nullptr
+                           ? juce::jlimit (0.0f, 100.0f, (float) trimStartSlider->getValue()) / 100.0f
+                           : 0.0f;
+        const float t1 = trimEndSlider != nullptr
+                           ? juce::jlimit (t0, 1.0f, (float) trimEndSlider->getValue() / 100.0f)
+                           : 1.0f;
+
+        auto wave = sourceWaveArea.reduced (6.0f * sc);
+        const float x0 = wave.getX() + t0 * wave.getWidth();
+        const float x1 = wave.getX() + t1 * wave.getWidth();
+
+        g.setColour (juce::Colours::black.withAlpha (0.48f));
+
+        if (x0 > wave.getX())
+            g.fillRect (juce::Rectangle<float> (wave.getX(), wave.getY(),
+                                                x0 - wave.getX(), wave.getHeight()));
+
+        if (x1 < wave.getRight())
+            g.fillRect (juce::Rectangle<float> (x1, wave.getY(),
+                                                wave.getRight() - x1, wave.getHeight()));
+
+        g.setColour (OvenLookAndFeel::lime().withAlpha (0.8f));
+        g.fillRect (x0 - 0.7f * sc, wave.getY(), 1.4f * sc, wave.getHeight());
+        g.setColour (juce::Colour (0xff8fe6c8).withAlpha (0.8f));
+        g.fillRect (x1 - 0.7f * sc, wave.getY(), 1.4f * sc, wave.getHeight());
+
+        g.setColour (OvenLookAndFeel::cream().withAlpha (0.55f));
+        g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.0f, 8.5f * sc), juce::Font::bold)));
+        g.drawText ("IN  " + juce::String (juce::roundToInt (t0 * 100.0f)) + "%",
+                    R (20.0f, 262.0f, 300.0f, 12.0f), juce::Justification::centredLeft, false);
+        g.setColour (juce::Colour (0xff8fe6c8).withAlpha (0.7f));
+        g.drawText ("OUT  " + juce::String (juce::roundToInt (t1 * 100.0f)) + "%",
+                    R (380.0f, 262.0f, 300.0f, 12.0f), juce::Justification::centredLeft, false);
+
         g.setColour (OvenLookAndFeel::cream().withAlpha (0.4f));
         g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.0f, 8.5f * sc), juce::Font::bold)));
         g.drawText (juce::String ((double) sourceBuffer.getNumSamples() / sourceRate, 1) + " s",
-                    R (20.0f, 284.0f, 300.0f, 14.0f), juce::Justification::centredLeft, false);
+                    R (520.0f, 84.0f, 150.0f, 14.0f), juce::Justification::centredRight, false);
     }
     else
     {

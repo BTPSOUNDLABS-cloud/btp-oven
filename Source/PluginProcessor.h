@@ -73,6 +73,16 @@ public:
     float  getOutputLevel() const { return outputLevel.load (std::memory_order_relaxed); }
 
     //==========================================================================
+    // Transport (message thread)
+    void playTransport();
+    void pauseTransport();
+    void stopTransport();
+    bool isTransportPlaying() const noexcept;
+    bool isTransportPaused() const noexcept { return transportPaused.load (std::memory_order_relaxed); }
+    bool isHostTempoActive() const noexcept { return hostTempoActive.load (std::memory_order_relaxed); }
+    float getEffectiveBpm() const noexcept { return effectiveBpm.load (std::memory_order_relaxed); }
+
+    //==========================================================================
     // AI take bookkeeping (message thread)
     bool   hasAiResult() const noexcept { return lastAiAudio.getNumSamples() > 0; }
     double getAiResultSeconds() const noexcept { return aiResultSeconds; }
@@ -189,6 +199,10 @@ private:
     std::atomic<float> outputLevel { 0.0f };
     std::atomic<float> fxProgress { 0.0f };
     std::atomic<float> automationPhase { 0.0f };
+    std::atomic<bool>  transportPaused { false };
+    std::atomic<bool>  transportReset  { false };
+    std::atomic<bool>  hostTempoActive { false };
+    std::atomic<float> effectiveBpm    { 140.0f };
 
     double currentSampleRate = 48000.0;
     double autoPhase = 0.0;

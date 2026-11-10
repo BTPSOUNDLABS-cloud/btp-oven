@@ -16,12 +16,16 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
 
 private:
     void timerCallback() override;
 
     juce::Rectangle<float> getLaneBounds (int loop) const;
     juce::Rectangle<float> getWaveBounds (juce::Rectangle<float> lane) const;
+    void setRegionFromMouse (const juce::MouseEvent&, bool forcePick);
 
     static constexpr int peakCount = 260;
 
@@ -37,6 +41,9 @@ private:
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 2> startAttachments;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>, 2> endAttachments;
     std::array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>, 2> loopAttachments;
+
+    int  dragLoop = -1;
+    bool dragStart = true;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (OvenWindow)
 };
