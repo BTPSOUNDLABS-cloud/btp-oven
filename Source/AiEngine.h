@@ -105,6 +105,13 @@ private:
 
     void run() override;
 
+    // Deterministic-result cache: same prompt + seed + settings returns instantly.
+    static juce::File cacheFolder();
+    juce::String cacheKeyFor (const Job& job) const;
+    bool loadFromCache (const Job& job, Result& out) const;
+    void storeToCache (const Job& job, const Result& result) const;
+    static void pruneCache (int keepFiles = 200);
+
     void loadFromConfig();
     void saveToConfig() const;
     Models defaultModels() const;

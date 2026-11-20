@@ -312,6 +312,21 @@ void AiEngine::submit (const Job& job)
     if (isBusy())
         return;
 
+    // A fixed seed makes the result reproducible, so a repeat costs nothing.
+    if (job.seed >= 0)
+    {
+        Result cached;
+        if (loadFromCache (job, cached))
+        {
+            {
+                const juce::ScopedLock sl (resultLock);
+                pendingResult = std::move (cached);
+            }
+            setState (State::Ready, "CACHED TAKE  /  INSTANT");
+            return;
+        }
+    }
+
     {
         const juce::ScopedLock sl (jobLock);
         pending.job = job;
@@ -597,10 +612,16 @@ void AiEngine::doGenerate (const Job& job)
 
     ace_audio_free (&audio);
 
+    Result toCache;
     {
         const juce::ScopedLock sl (resultLock);
         pendingResult = std::move (result);
+        if (job.seed >= 0)
+            toCache = pendingResult;
     }
+
+    if (job.seed >= 0 && toCache.valid)
+        storeToCache (job, toCache);
 
     setState (State::Ready, "READY  /  LAST TAKE " + juce::String (pendingResult.seconds, 1) + " s");
 }
@@ -932,3 +953,120 @@ juce::File saveTrainingCapture (const juce::AudioBuffer<float>& audio, double sa
 }
 
 } // namespace btpai
+
+//==============================================================================
+// Deterministic-result cache
+//==============================================================================
+juce::File AiEngine::cacheFolder()
+{
+    auto folder = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                      .getChildFile ("BtP Oven")
+                      .getChildFile ("cache")
+                      .getChildFile ("ace");
+    folder.createDirectory();
+    return folder;
+}
+
+juce::String AiEngine::cacheKeyFor (const Job& job) const
+{
+    const auto m = getModels();
+
+    juce::String signature;
+    signature << job.prompt << "|" << job.lyrics << "|" << job.keyscale << "|"
+              << job.bpm << "|" << juce::String (job.duration, 3) << "|"
+              << job.steps << "|" << juce::String (job.guidance, 3) << "|"
+              << juce::String (job.shift, 3) << "|" << job.seed << "|"
+              << (int) job.kind << "|" << (int) job.withVocals << "|"
+              << m.dit.getFileName() << ":" << m.dit.getSize() << "|"
+              << m.textEncoder.getFileName() << ":" << m.textEncoder.getSize() << "|"
+              << m.vae.getFileName() << ":" << m.vae.getSize() << "|"
+              << m.lm.getFileName() << ":" << m.lm.getSize() << "|"
+              << m.lora.getFileName() << ":" << m.lora.getSize()
+              << ":" << juce::String (m.loraScale, 3);
+
+    // FNV-1a over the signature: deterministic, dependency-free. juce_cryptography
+    // is not linked in this build, so MD5/SHA256 are unavailable here.
+    juce::uint64 hash = 1469598103934665603ULL;
+    const auto* bytes = reinterpret_cast<const unsigned char*> (signature.toRawUTF8());
+    for (int i = 0; i < signature.getNumBytesAsUTF8(); ++i)
+    {
+        hash ^= bytes[i];
+        hash *= 1099511628211ULL;
+    }
+
+    return juce::String::toHexString ((juce::int64) hash)
+           + "-" + juce::String ((juce::int64) signature.hashCode64());
+}
+
+bool AiEngine::loadFromCache (const Job& job, Result& out) const
+{
+    const auto file = cacheFolder().getChildFile (cacheKeyFor (job) + ".wav");
+    if (! file.existsAsFile())
+        return false;
+
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (file));
+    if (reader == nullptr)
+        return false;
+
+    const int frames = (int) reader->lengthInSamples;
+    if (frames <= 0)
+        return false;
+
+    out.audio.setSize ((int) reader->numChannels, frames);
+    reader->read (&out.audio, 0, frames, 0, true, true);
+    out.seed    = job.seed;
+    out.prompt  = job.prompt;
+    out.lyrics  = job.lyrics;
+    out.seconds = reader->sampleRate > 0.0 ? frames / reader->sampleRate : 0.0;
+    out.valid   = true;
+    return true;
+}
+
+void AiEngine::storeToCache (const Job& job, const Result& result) const
+{
+    if (! result.valid || result.audio.getNumSamples() <= 0)
+        return;
+
+    const auto file = cacheFolder().getChildFile (cacheKeyFor (job) + ".wav");
+    if (file.existsAsFile())
+        return;
+
+    file.deleteFile();
+    std::unique_ptr<juce::FileOutputStream> stream (file.createOutputStream());
+    if (stream == nullptr)
+        return;
+
+    juce::WavAudioFormat wav;
+    std::unique_ptr<juce::AudioFormatWriter> writer (
+        wav.createWriterFor (stream.get(), 48000.0,
+                             (unsigned int) result.audio.getNumChannels(), 24, {}, 0));
+    if (writer == nullptr)
+    {
+        stream.release();
+        return;
+    }
+
+    stream.release();
+    writer->writeFromAudioSampleBuffer (result.audio, 0, result.audio.getNumSamples());
+    writer.reset();
+
+    pruneCache();
+}
+
+void AiEngine::pruneCache (int keepFiles)
+{
+    auto folder = cacheFolder();
+    auto files = folder.findChildFiles (juce::File::findFiles, false, "*.wav");
+    if (files.size() <= keepFiles)
+        return;
+
+    // oldest first
+    std::sort (files.begin(), files.end(),
+               [] (const juce::File& a, const juce::File& b)
+               { return a.getLastModificationTime() < b.getLastModificationTime(); });
+
+    for (int i = 0; i < files.size() - keepFiles; ++i)
+        files.getReference (i).deleteFile();
+}

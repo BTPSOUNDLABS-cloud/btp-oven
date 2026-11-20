@@ -303,6 +303,7 @@ void BtPOvenAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBloc
 {
     const bool sampleRateChanged = std::abs (sampleRate - currentSampleRate) > 0.5;
     currentSampleRate = sampleRate > 0.0 ? sampleRate : 48000.0;
+    chainCapture.prepare (currentSampleRate, 2);
 
     if (! loopsPrepared || sampleRateChanged)
     {
@@ -553,6 +554,8 @@ void BtPOvenAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce
 
     if (numSamples <= 0 || numOut <= 0)
         return;
+
+    chainCapture.push (buffer);
 
     if (dryBuffer.getNumSamples() < numSamples)
         dryBuffer.setSize (2, numSamples, false, false, true);
@@ -1359,7 +1362,7 @@ void BtPOvenAudioProcessor::nuke()
     setBool (P::ALoop, chance (0.9f));
     setBool (P::BLoop, chance (0.9f));
 
-    // Loop C (AI take) — randomised exactly like A/B, but nuke NEVER touches
+    // Loop C (AI take) â€” randomised exactly like A/B, but nuke NEVER touches
     // the prompt, the dataset or the generator itself.
     setBool (P::CPlay, true);
     setBool (P::CBypass, chance (0.22f));

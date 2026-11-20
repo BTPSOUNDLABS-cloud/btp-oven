@@ -12,6 +12,8 @@
 #include "StemEngine.h"
 #include "RvcEngine.h"
 #include "RaveEngine.h"
+#include "AudioCapture.h"
+#include "EngineService.h"
 
 //==============================================================================
 class BtPOvenAudioProcessor : public juce::AudioProcessor,
@@ -212,5 +214,16 @@ private:
     juce::String statusMessage;
     double statusTime = 0.0;
 
+    /** Last ~8 s of input, for the chain pages to analyse. */
+    AudioCapture chainCapture;
+
+    /** Owns the worker thread; joined before the module unloads. */
+    EngineService engineService;
+
+public:
+    AudioCapture& getChainCapture() noexcept { return chainCapture; }
+    EngineService& getEngine() noexcept { return engineService; }
+
+private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BtPOvenAudioProcessor)
 };

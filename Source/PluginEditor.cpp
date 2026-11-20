@@ -20,7 +20,10 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
       aiPage (p),
       stemPage (p),
       oneShotPage (p),
-      rvcPage (p)
+      rvcPage (p),
+      chainVocalPage (ChainPage::Mode::Vocal, p.getChainCapture(), p.getEngine()),
+      chainMasterPage (ChainPage::Mode::Master, p.getChainCapture(), p.getEngine()),
+      rackChainPage (p.getChainCapture(), p.getEngine())
 {
     setLookAndFeel (&lnf);
     setOpaque (true);
@@ -65,6 +68,78 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
         if (rvcPageVisible)
             toggleRvcPage();
     };
+
+    // VoxChain pages: same engine contract as the standalone app, themed to Oven.
+    for (auto* page : { &chainVocalPage, &chainMasterPage })
+    {
+        addAndMakeVisible (*page);
+        page->setVisible (false);
+        page->setPalette (OvenLookAndFeel::ink(), OvenLookAndFeel::panel(),
+                          OvenLookAndFeel::cream(), OvenLookAndFeel::lime(),
+                          OvenLookAndFeel::lime());
+    }
+
+    chainVocalPage.onMainPage = [this]
+    {
+        if (chainVocalVisible)
+            toggleChainVocalPage();
+    };
+
+    chainMasterPage.onMainPage = [this]
+    {
+        if (chainMasterVisible)
+            toggleChainMasterPage();
+    };
+
+    addAndMakeVisible (rackChainPage);
+    rackChainPage.setVisible (false);
+    rackChainPage.setPalette (OvenLookAndFeel::ink(), OvenLookAndFeel::panel(),
+                              OvenLookAndFeel::cream(), OvenLookAndFeel::lime());
+    rackChainPage.onMainPage = [this]
+    {
+        if (rackChainVisible)
+            toggleRackChainPage();
+    };
+
+    chainVocalPage.onChainBuilt = [this] (const juce::var& chainSpec)
+    {
+        rackChainPage.adoptSpec (chainSpec);
+    };
+    chainMasterPage.onChainBuilt = [this] (const juce::var& chainSpec)
+    {
+        rackChainPage.adoptSpec (chainSpec);
+    };
+
+    // Documentation hook: BTP_CAPTURE_PAGES=<folder> writes one PNG per page.
+    const auto captureDir = juce::SystemStats::getEnvironmentVariable ("BTP_CAPTURE_PAGES", {});
+    if (captureDir.isNotEmpty())
+    {
+        juce::Component::SafePointer<BtPOvenAudioProcessorEditor> safe (this);
+        juce::Timer::callAfterDelay (1500, [safe, captureDir]
+        {
+            if (auto* editor = safe.getComponent())
+                editor->capturePages (juce::File (captureDir));
+        });
+    }
+
+    // First-run credit wall: shown once per build, then never again.
+    auto seenFlag = juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                        .getChildFile ("BtP Oven")
+                        .getChildFile ("credits_v1.seen");
+
+    if (! seenFlag.existsAsFile())
+    {
+        creditsOverlay = std::make_unique<CreditsOverlay>();
+        addAndMakeVisible (*creditsOverlay);
+        creditsOverlay->setAlwaysOnTop (true);
+        creditsOverlay->onDismiss = [this, seenFlag]() mutable
+        {
+            seenFlag.getParentDirectory().createDirectory();
+            seenFlag.create();
+            if (creditsOverlay != nullptr)
+                creditsOverlay->setVisible (false);
+        };
+    }
 
     //==========================================================================
     // Cook mode
@@ -242,6 +317,18 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
     rvcButton = addButton ("VOICE", { 586.0f, 20.0f, 44.0f, 34.0f },
                            [this] { toggleRvcPage(); },
                            false, false, true);
+
+    chainVocalButton = addButton ("VOX", { 340.0f, 56.0f, 92.0f, 24.0f },
+                                  [this] { toggleChainVocalPage(); },
+                                  false, false, true);
+
+    chainMasterButton = addButton ("MASTER", { 438.0f, 56.0f, 92.0f, 24.0f },
+                                   [this] { toggleChainMasterPage(); },
+                                   false, false, true);
+
+    rackChainButton = addButton ("STACK", { 536.0f, 56.0f, 92.0f, 24.0f },
+                                 [this] { toggleRackChainPage(); },
+                                 false, false, true);
 
     //==========================================================================
     // Global transport: visible on every page.
@@ -527,6 +614,15 @@ void BtPOvenAudioProcessorEditor::resized()
     stemPage.setBounds (S (16.0f, 84.0f, 1148.0f, 692.0f));
     oneShotPage.setBounds (S (16.0f, 84.0f, 1148.0f, 692.0f));
     rvcPage.setBounds (S (16.0f, 84.0f, 1148.0f, 692.0f));
+    chainVocalPage.setBounds (S (16.0f, 84.0f, 1148.0f, 692.0f));
+    chainMasterPage.setBounds (S (16.0f, 84.0f, 1148.0f, 692.0f));
+    rackChainPage.setBounds (S (16.0f, 84.0f, 1148.0f, 692.0f));
+
+    if (creditsOverlay != nullptr)
+    {
+        creditsOverlay->setBounds (getLocalBounds());
+        creditsOverlay->toFront (false);
+    }
 
     panelCook      = S (624.0f, 84.0f, 538.0f, 196.0f);
     panelTiming    = S (624.0f, 288.0f, 538.0f, 182.0f);
@@ -587,6 +683,23 @@ void BtPOvenAudioProcessorEditor::toggleAiPage()
     stemPageVisible = false;
     oneShotPageVisible = false;
     rvcPageVisible = false;
+    chainVocalVisible = false;
+    chainMasterVisible = false;
+    rackChainVisible = false;
+
+    // Warm the weights while the user is reading the page, so the first
+    // generation does not pay the load cost. Models stay resident afterwards.
+    if (aiPageVisible)
+    {
+        auto& engine = AiEngine::getInstance();
+        if (! engine.isBusy()
+            && engine.getState() == AiEngine::State::Unloaded
+            && engine.getModels().isComplete())
+        {
+            engine.startLoad();
+        }
+    }
+
     setMainPageVisible (! aiPageVisible);
 }
 
@@ -617,13 +730,54 @@ void BtPOvenAudioProcessorEditor::toggleRvcPage()
     aiPageVisible = false;
     stemPageVisible = false;
     oneShotPageVisible = false;
+    chainVocalVisible = false;
+    chainMasterVisible = false;
     setMainPageVisible (! rvcPageVisible);
+}
+
+void BtPOvenAudioProcessorEditor::toggleChainVocalPage()
+{
+    chainVocalVisible = ! chainVocalVisible;
+    rackPageVisible = false;
+    aiPageVisible = false;
+    stemPageVisible = false;
+    oneShotPageVisible = false;
+    rvcPageVisible = false;
+    chainMasterVisible = false;
+    setMainPageVisible (! chainVocalVisible);
+}
+
+void BtPOvenAudioProcessorEditor::toggleChainMasterPage()
+{
+    chainMasterVisible = ! chainMasterVisible;
+    rackPageVisible = false;
+    aiPageVisible = false;
+    stemPageVisible = false;
+    oneShotPageVisible = false;
+    rvcPageVisible = false;
+    chainVocalVisible = false;
+    rackChainVisible = false;
+    setMainPageVisible (! chainMasterVisible);
+}
+
+void BtPOvenAudioProcessorEditor::toggleRackChainPage()
+{
+    rackChainVisible = ! rackChainVisible;
+    rackPageVisible = false;
+    aiPageVisible = false;
+    stemPageVisible = false;
+    oneShotPageVisible = false;
+    rvcPageVisible = false;
+    chainVocalVisible = false;
+    chainMasterVisible = false;
+    setMainPageVisible (! rackChainVisible);
 }
 
 void BtPOvenAudioProcessorEditor::setMainPageVisible (bool visible)
 {
     const bool showMain = visible && ! rackPageVisible && ! aiPageVisible && ! stemPageVisible
-                       && ! oneShotPageVisible && ! rvcPageVisible;
+                       && ! oneShotPageVisible && ! rvcPageVisible
+                       && ! chainVocalVisible && ! chainMasterVisible && ! rackChainVisible;
 
     ovenWindow.setVisible (showMain);
 
@@ -651,6 +805,9 @@ void BtPOvenAudioProcessorEditor::setMainPageVisible (bool visible)
     stemPage.setVisible (stemPageVisible);
     oneShotPage.setVisible (oneShotPageVisible);
     rvcPage.setVisible (rvcPageVisible);
+    chainVocalPage.setVisible (chainVocalVisible);
+    chainMasterPage.setVisible (chainMasterVisible);
+    rackChainPage.setVisible (rackChainVisible);
 
     if (rackButton != nullptr)
     {
@@ -821,9 +978,14 @@ void BtPOvenAudioProcessorEditor::paintHeader (juce::Graphics& g)
                 juce::Justification::centredLeft, false);
     // Subtitle
     g.setColour (OvenLookAndFeel::cream().withAlpha (0.55f));
-    g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.5f, 9.5f * sc), juce::Font::bold)));
-    g.drawText ("TRAP  MELODY  MUTATION  ENGINE",
-                juce::Rectangle<float> (26.0f * sc, 50.0f * sc, 340.0f * sc, 18.0f * sc),
+    g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.0f, 8.5f * sc), juce::Font::bold)));
+    g.drawText ("FULL MUSIC PRODUCTION CONSOLE",
+                juce::Rectangle<float> (26.0f * sc, 48.0f * sc, 300.0f * sc, 12.0f * sc),
+                juce::Justification::centredLeft, false);
+    g.setColour (OvenLookAndFeel::cream().withAlpha (0.38f));
+    g.setFont (juce::Font (juce::FontOptions (juce::jmax (6.5f, 7.8f * sc), juce::Font::bold)));
+    g.drawText ("BY BTP SOUNDLABS",
+                juce::Rectangle<float> (26.0f * sc, 60.0f * sc, 300.0f * sc, 11.0f * sc),
                 juce::Justification::centredLeft, false);
 
     // Loop selector caption
@@ -1109,4 +1271,47 @@ void BtPOvenAudioProcessorEditor::timerCallback()
     repaint (meterArea);
     repaint (laneStripArea);
     repaint (statusArea);
+}
+
+void BtPOvenAudioProcessorEditor::capturePages (const juce::File& folder)
+{
+    folder.createDirectory();
+
+    auto shot = [this, &folder] (const juce::String& name)
+    {
+        const auto image = createComponentSnapshot (getLocalBounds(), true, 1.0f);
+        juce::PNGImageFormat png;
+        auto file = folder.getChildFile (name + ".png");
+        file.deleteFile();
+        if (auto stream = file.createOutputStream())
+            png.writeImageToStream (image, *stream);
+    };
+
+    auto showOnly = [this] (bool vocal, bool master, bool rack)
+    {
+        chainVocalVisible = vocal;
+        chainMasterVisible = master;
+        rackChainVisible = rack;
+        rackPageVisible = false;
+        aiPageVisible = false;
+        stemPageVisible = false;
+        oneShotPageVisible = false;
+        rvcPageVisible = false;
+        setMainPageVisible (! (vocal || master || rack));
+        resized();
+    };
+
+    showOnly (false, false, false);
+    shot ("page-main");
+
+    showOnly (true, false, false);
+    shot ("page-vox");
+
+    showOnly (false, true, false);
+    shot ("page-master");
+
+    showOnly (false, false, true);
+    shot ("page-stack");
+
+    showOnly (false, false, false);
 }

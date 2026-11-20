@@ -471,6 +471,31 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
 AiPage::~AiPage()
 {
     stopTimer();
+
+    // Tear down in dependency order: attachments and lists before the widgets
+    // they point at. Default member order destroys the attachments after their
+    // sliders, and the list model before its ListBox, which crashes on exit.
+    sliderAttachments.clear();
+    buttonAttachments.clear();
+
+    datasetList.reset();
+
+    loraDialog.reset();
+
+    loraScaleSlider.reset();
+    loraBox.reset();
+    loraScaleLabel.reset();
+
+    presetBox.reset();
+    lyricsEditor.reset();
+    promptEditor.reset();
+
+    for (auto& slider : regionSliders)
+        slider.reset();
+    regionSliders.clear();
+
+    knobs.clear();
+    buttons.clear();
 }
 
 //==============================================================================
@@ -1400,6 +1425,15 @@ void AiPage::timerCallback()
         shimmerTime = 0.0f;
 
     const bool busy = engine.isBusy();
+
+    // A random take resolves to a concrete seed. Show it, so the run becomes
+    // reproducible and the deterministic cache can serve a repeat instantly.
+    const auto resolvedSeed = processor.getAiResultSeed();
+    if (seedSlider != nullptr && ! busy && resolvedSeed > 0
+        && (juce::int64) std::llround (seedSlider->getValue()) < 0)
+    {
+        seedSlider->setValue ((double) resolvedSeed, juce::dontSendNotification);
+    }
 
     if (generateButton != nullptr)
     {

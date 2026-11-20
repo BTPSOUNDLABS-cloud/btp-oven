@@ -64,6 +64,14 @@ target_sources(BtPOven PRIVATE
     Source/RvcEngine.cpp
     Source/RvcPage.h
     Source/RvcPage.cpp
+    Source/EngineClient.h
+    Source/EngineClient.cpp
+    Source/EngineService.h
+    Source/EngineService.cpp
+    Source/ChainPage.h
+    Source/ChainPage.cpp
+    Source/ChainRackPage.h
+    Source/ChainRackPage.cpp
     Source/RaveEngine.h
     Source/RaveEngine.cpp
     Source/PluginProcessor.h

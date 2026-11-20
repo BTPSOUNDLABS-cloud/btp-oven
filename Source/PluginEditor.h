@@ -10,6 +10,9 @@
 #include "StemPage.h"
 #include "OneShotPage.h"
 #include "RvcPage.h"
+#include "ChainPage.h"
+#include "ChainRackPage.h"
+#include "CreditsOverlay.h"
 
 //==============================================================================
 class BtPOvenAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -62,6 +65,9 @@ private:
     void toggleStemPage();
     void toggleOneShotPage();
     void toggleRvcPage();
+    void toggleChainVocalPage();
+    void toggleChainMasterPage();
+    void toggleRackChainPage();
     void setMainPageVisible (bool visible);
 
     void toggleRecord (int loopIndex, bool overdub);
@@ -75,6 +81,9 @@ private:
     void paintLaneStrip (juce::Graphics&);
     void paintStatus (juce::Graphics&);
 
+    /** Documentation helper: writes one PNG per page. Gated by an env var. */
+    void capturePages (const juce::File& folder);
+
     juce::Rectangle<int> S (float x, float y, float w, float h) const;
 
     //==========================================================================
@@ -86,6 +95,10 @@ private:
     StemPage stemPage;
     OneShotPage oneShotPage;
     RvcPage rvcPage;
+    ChainPage chainVocalPage;
+    ChainPage chainMasterPage;
+    ChainRackPage rackChainPage;
+    std::unique_ptr<CreditsOverlay> creditsOverlay;
 
     std::vector<std::unique_ptr<Knob>> knobs;
     std::vector<UiButton> buttons;
@@ -111,6 +124,8 @@ private:
     juce::TextButton* stemButton = nullptr;
     juce::TextButton* oneShotButton = nullptr;
     juce::TextButton* rvcButton = nullptr;
+    juce::TextButton* chainVocalButton = nullptr;
+    juce::TextButton* chainMasterButton = nullptr;
 
     juce::TextButton* playButton = nullptr;
     juce::TextButton* pauseButton = nullptr;
@@ -130,6 +145,10 @@ private:
     bool stemPageVisible = false;
     bool oneShotPageVisible = false;
     bool rvcPageVisible = false;
+    bool chainVocalVisible = false;
+    bool chainMasterVisible = false;
+    bool rackChainVisible = false;
+    juce::TextButton* rackChainButton = nullptr;
     float sc = 1.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BtPOvenAudioProcessorEditor)
