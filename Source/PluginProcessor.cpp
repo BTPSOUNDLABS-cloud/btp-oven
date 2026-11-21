@@ -846,6 +846,17 @@ void BtPOvenAudioProcessor::pollAiEngine()
     if (! engine.takeResult (result))
         return;
 
+    if (result.kind == AiEngine::Kind::Lyrics)
+    {
+        aiLyricsDraft = result.lyrics;
+        ++aiLyricsSeq;
+
+        setStatusMessage (result.lyrics.isEmpty()
+                              ? "LYRICS FAILED  /  CHECK THE 4B LM"
+                              : "LYRICS READY  /  " + juce::String (result.lyrics.length()) + " CHARACTERS");
+        return;
+    }
+
     if (result.kind == AiEngine::Kind::OneShot)
     {
         lastOneShot = result.audio;

@@ -33,13 +33,14 @@ public:
 
     /** What a generated take is used for. Tracks land in Loop C; one-shots are
         previewed and saved to the library instead. */
-    enum class Kind { Track, OneShot };
+    enum class Kind { Track, OneShot, Lyrics };
 
     struct Job
     {
         juce::String prompt;
         juce::String lyrics;
         juce::String keyscale;     // e.g. "F# minor", empty = free
+        juce::String language;     // ISO code for sung vocals, empty = model's choice
         int          bpm = 0;      // 0 = let the model decide
         float        duration = 12.0f;
         int          steps = 8;
@@ -119,6 +120,8 @@ private:
 
     void doLoad();
     void doGenerate (const Job&);
+    void doLyrics (const Job&);
+    bool ensureLm();
     void setState (State, const juce::String& status, const juce::String& error = {});
     void post (std::function<void()> fn);
 

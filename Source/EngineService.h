@@ -28,6 +28,12 @@ public:
     void setEndpoint (const juce::String& host, int port);
     void health (int timeoutMs, Callback callback);
     void post (const juce::var& request, int timeoutMs, Callback callback);
+
+    /** Ping the engine and, if it is not running, start it and wait for it to
+        answer. Runs on the worker thread, so it never blocks the message
+        thread. Safe to call more than once: the start is attempted once. */
+    void ensureRunning (Callback callback);
+
     void shutdown();
 
 private:
@@ -36,9 +42,15 @@ private:
         juce::var request;
         int timeoutMs = 15000;
         Callback callback;
+        bool ensureRunning = false;
     };
 
     void run();
+
+    EngineReply ensureEngineRunning();
+
+    static juce::File findEngineDir();
+    static bool spawnEngine (const juce::File& dir, int port);
 
     EngineClient client;
     std::thread worker;
@@ -46,6 +58,7 @@ private:
     std::condition_variable condition;
     std::deque<Job> queue;
     bool stopping = false;
+    bool spawnAttempted = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EngineService)
 };

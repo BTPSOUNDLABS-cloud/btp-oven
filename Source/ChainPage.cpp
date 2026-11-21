@@ -43,7 +43,7 @@ ChainPage::ChainPage (Mode pageMode, AudioCapture& audioCapture, EngineService& 
     toneLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
 
     statusLabel.setFont (juce::Font (juce::FontOptions (11.0f)));
-    statusLabel.setText ("start the engine: python -m voxchain serve",
+    statusLabel.setText ("starting the engine...",
                          juce::dontSendNotification);
 
     buildButton.setColour (juce::TextButton::buttonColourId, accent);
@@ -78,6 +78,23 @@ ChainPage::ChainPage (Mode pageMode, AudioCapture& audioCapture, EngineService& 
     };
 
     dragOut.getFilePath = [this] { return lastFstPath; };
+
+    // Start the engine when the page first appears. It pings first, so this is
+    // free when the engine is already running and only spawns when it is not.
+    juce::Component::SafePointer<ChainPage> safe (this);
+    service.ensureRunning ([safe] (const EngineReply& reply)
+    {
+        if (auto* page = safe.getComponent())
+        {
+            const auto version = reply.data.getProperty ("version", "").toString();
+
+            page->statusLabel.setText (reply.ok
+                                           ? (version.isNotEmpty() ? "engine " + version + " ready"
+                                                                   : "engine ready")
+                                           : reply.describe(),
+                                       juce::dontSendNotification);
+        }
+    });
 }
 
 ChainPage::~ChainPage()

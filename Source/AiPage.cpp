@@ -214,6 +214,22 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
     lyricsEditor->setTextToShowWhenEmpty ("lyrics (optional - leave empty for instrumental)", lime.withAlpha (0.45f));
     addAndMakeVisible (*lyricsEditor);
 
+    // Lyrics: write them yourself, or let the LM write from the prompt.
+    autoLyricsButton = addAction ("AUTO", { 542.0f, 146.0f, 62.0f, 26.0f }, [this]
+    {
+        autoLyrics = ! autoLyrics;
+        if (autoLyricsButton != nullptr)
+            autoLyricsButton->setToggleState (autoLyrics, juce::dontSendNotification);
+        processor.setStatusMessage (autoLyrics
+                                        ? "AUTO LYRICS ON - EMPTY BOX IS WRITTEN FROM THE PROMPT"
+                                        : "AUTO LYRICS OFF");
+        saveState();
+    });
+    autoLyricsButton->setTooltip ("When the lyrics box is empty, write lyrics from the prompt before singing");
+
+    writeLyricsButton = addAction ("WRITE", { 612.0f, 146.0f, 74.0f, 26.0f }, [this] { writeLyrics(); });
+    writeLyricsButton->setTooltip ("Write lyrics now from the prompt, vibe and language");
+
     presetBox = std::make_unique<juce::ComboBox> ("master presets");
     presetBox->setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff080a08));
     presetBox->setColour (juce::ComboBox::textColourId, OvenLookAndFeel::cream());
@@ -754,6 +770,29 @@ void AiPage::applyMode (int mode)
 }
 
 //==============================================================================
+juce::String AiPage::languageCode() const
+{
+    if (languageBox == nullptr)
+        return {};
+
+    // Codes the ACE-Step FSM accepts. Anything absent means "let the model
+    // choose", which is honest: a name we cannot map would silently do nothing.
+    const auto name = languageBox->getText();
+
+    if (name == "English")    return "en";
+    if (name == "Spanish")    return "es";
+    if (name == "Portuguese") return "pt";
+    if (name == "French")     return "fr";
+    if (name == "German")     return "de";
+    if (name == "Japanese")   return "ja";
+    if (name == "Korean")     return "ko";
+    if (name == "Hindi")      return "hi";
+    if (name == "Arabic")     return "ar";
+
+    return {};   // Yoruba has no code in this model; the LM will choose.
+}
+
+//==============================================================================
 void AiPage::generate()
 {
     if (! AiEngine::isCompiledIn())
@@ -762,6 +801,55 @@ void AiPage::generate()
         return;
     }
 
+    // AUTO writes lyrics first when the box is empty, then sings them. A box
+    // the user has filled in is never overwritten behind their back.
+    const bool hasLyrics = lyricsEditor != nullptr
+                           && lyricsEditor->getText().trim().isNotEmpty();
+
+    if (autoLyrics && ! hasLyrics && promptEditor->getText().trim().isNotEmpty())
+    {
+        pendingAudioAfterLyrics = true;
+        writeLyrics();
+        return;
+    }
+
+    submitAudio();
+}
+
+void AiPage::writeLyrics()
+{
+    if (! AiEngine::isCompiledIn())
+    {
+        processor.setStatusMessage ("AI ENGINE NOT COMPILED INTO THIS BUILD");
+        return;
+    }
+
+    if (promptEditor->getText().trim().isEmpty())
+    {
+        processor.setStatusMessage ("ADD A PROMPT FIRST - THE WRITER NEEDS A VIBE TO WORK FROM");
+        return;
+    }
+
+    if (engine.isBusy())
+        return;
+
+    AiEngine::Job job;
+    job.kind     = AiEngine::Kind::Lyrics;
+    job.prompt   = modePrefix.isNotEmpty() ? modePrefix + ", " + promptEditor->getText()
+                                           : promptEditor->getText();
+    job.duration = (float) durationSlider->getValue();
+    job.steps    = juce::roundToInt (stepsSlider->getValue());
+    job.guidance = (float) guidanceSlider->getValue();
+    job.bpm      = juce::roundToInt (bpmSlider->getValue());
+    job.seed     = (juce::int64) std::llround (seedSlider->getValue());
+    job.language = languageCode();
+
+    engine.submit (job);
+    processor.setStatusMessage ("WRITING LYRICS...");
+}
+
+void AiPage::submitAudio()
+{
     AiEngine::Job job;
     job.prompt   = promptEditor->getText();
     job.lyrics   = lyricsEditor->getText();
@@ -771,11 +859,10 @@ void AiPage::generate()
     job.shift    = 3.0f;
     job.bpm      = juce::roundToInt (bpmSlider->getValue());
     job.seed     = (juce::int64) std::llround (seedSlider->getValue());
+    job.language = languageCode();
+
     if (modePrefix.isNotEmpty())
         job.prompt = modePrefix + ", " + job.prompt;
-
-    if (languageBox != nullptr && languageBox->getSelectedId() > 1)
-        job.prompt = job.prompt + ", vocals sung in " + languageBox->getText();
 
     job.withVocals = vocalsButton != nullptr && vocalsButton->getToggleState();
 
@@ -1133,7 +1220,7 @@ void AiPage::resized()
     }
 
     promptEditor->setBounds (R (14.0f, 32.0f, 672.0f, 94.0f));
-    lyricsEditor->setBounds (R (14.0f, 146.0f, 672.0f, 26.0f));
+    lyricsEditor->setBounds (R (14.0f, 146.0f, 522.0f, 26.0f));
 
     if (presetBox != nullptr)
         presetBox->setBounds (R (14.0f, 174.0f, 672.0f, 18.0f));
@@ -1489,6 +1576,7 @@ AiPage::SavedUi AiPage::snapshot() const
     now.language = languageBox   != nullptr ? languageBox->getText()  : juce::String();
     now.mode     = modePrefix;
     now.vocals   = vocalsButton  != nullptr && vocalsButton->getToggleState();
+    now.autoLyrics = autoLyrics;
     now.duration = durationSlider != nullptr ? durationSlider->getValue() : -1.0;
     now.steps    = stepsSlider    != nullptr ? stepsSlider->getValue()    : -1.0;
     now.guidance = guidanceSlider != nullptr ? guidanceSlider->getValue() : -1.0;
@@ -1518,6 +1606,7 @@ void AiPage::saveState()
     tree.setProperty ("ai_bpm",      now.bpm,      nullptr);
     tree.setProperty ("ai_seed",     now.seed,     nullptr);
     tree.setProperty ("ai_vocals",   now.vocals,   nullptr);
+    tree.setProperty ("ai_auto_lyrics", now.autoLyrics, nullptr);
 
     // A DAW hands this back with the project. The standalone app has no host,
     // and JUCE does not reliably write its settings on exit, so keep our own
@@ -1546,6 +1635,7 @@ void AiPage::writeStandaloneState (const SavedUi& ui) const
     obj->setProperty ("bpm",      ui.bpm);
     obj->setProperty ("seed",     ui.seed);
     obj->setProperty ("vocals",   ui.vocals);
+    obj->setProperty ("autoLyrics", ui.autoLyrics);
 
     const auto file = uiStateFile();
     file.getParentDirectory().createDirectory();
@@ -1574,6 +1664,7 @@ bool AiPage::readStandaloneState (SavedUi& out) const
     out.language = obj->getProperty ("language").toString();
     out.mode     = obj->getProperty ("mode").toString();
     out.vocals   = (bool) obj->getProperty ("vocals");
+    out.autoLyrics = (bool) obj->getProperty ("autoLyrics");
     out.duration = number ("duration", -1.0);
     out.steps    = number ("steps",    -1.0);
     out.guidance = number ("guidance", -1.0);
@@ -1608,6 +1699,10 @@ void AiPage::applyUi (const SavedUi& ui)
     if (vocalsButton != nullptr)
         vocalsButton->setToggleState (ui.vocals, juce::dontSendNotification);
 
+    autoLyrics = ui.autoLyrics;
+    if (autoLyricsButton != nullptr)
+        autoLyricsButton->setToggleState (autoLyrics, juce::dontSendNotification);
+
     auto restoreSlider = [] (juce::Slider* slider, double value)
     {
         if (slider != nullptr && value >= -1.0)
@@ -1638,6 +1733,7 @@ void AiPage::restoreState()
         ui.language = tree.getProperty ("ai_language").toString();
         ui.mode     = tree.getProperty ("ai_mode").toString();
         ui.vocals   = (bool) tree.getProperty ("ai_vocals");
+        ui.autoLyrics = (bool) tree.getProperty ("ai_auto_lyrics");
         ui.duration = (double) tree.getProperty ("ai_duration", -1.0);
         ui.steps    = (double) tree.getProperty ("ai_steps",    -1.0);
         ui.guidance = (double) tree.getProperty ("ai_guidance", -1.0);
@@ -1663,6 +1759,32 @@ void AiPage::timerCallback()
     // Persist any edit made since the last tick, so a close at any moment keeps
     // what the user last saw.
     saveState();
+
+    // Lyrics arriving from the LM: show them, then sing them if this was an
+    // AUTO generate. A hand-written box is never overwritten.
+    const int seq = processor.getAiLyricsSeq();
+    if (seq != lastLyricsSeq)
+    {
+        lastLyricsSeq = seq;
+
+        const auto draft = processor.getAiLyricsDraft();
+        const bool gotLyrics = draft.trim().isNotEmpty();
+
+        if (gotLyrics && lyricsEditor != nullptr)
+            lyricsEditor->setText (draft, false);
+
+        if (pendingAudioAfterLyrics)
+        {
+            pendingAudioAfterLyrics = false;
+
+            if (gotLyrics)
+                submitAudio();
+            else
+                processor.setStatusMessage ("LYRICS CAME BACK EMPTY - CHECK THE 4B LM OR TYPE SOME");
+        }
+
+        saveState();
+    }
 
     shimmerTime += 1.0f / 10.0f;
 

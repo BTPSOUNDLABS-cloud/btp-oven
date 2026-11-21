@@ -15,7 +15,10 @@ EngineReply EngineClient::parse (const juce::String& body, int status) const
     }
 
     reply.ok = (bool) parsed.getProperty ("ok", false);
-    reply.data = parsed.getProperty ("data", juce::var());
+
+    // /rpc wraps its payload in "data"; /health is flat. Fall back to the whole
+    // object so a health reply still exposes service, version and protocol.
+    reply.data = parsed.getProperty ("data", parsed);
 
     if (! reply.ok)
     {

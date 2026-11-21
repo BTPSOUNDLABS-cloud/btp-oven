@@ -313,7 +313,8 @@ void AiEngine::submit (const Job& job)
         return;
 
     // A fixed seed makes the result reproducible, so a repeat costs nothing.
-    if (job.seed >= 0)
+    // Lyrics have no audio to cache, and a cached take would be wrong for them.
+    if (job.kind != Kind::Lyrics && job.seed >= 0)
     {
         Result cached;
         if (loadFromCache (job, cached))
@@ -389,6 +390,14 @@ void AiEngine::run()
 
         if (job.valid)
         {
+            // Lyrics need only the 4B LM. Loading the DiT for that would cost a
+            // minute and several GB for nothing.
+            if (job.job.kind == Kind::Lyrics)
+            {
+                doLyrics (job.job);
+                continue;
+            }
+
             if (unloaded || synth == nullptr)
             {
                 doLoad();
@@ -495,6 +504,100 @@ void AiEngine::doLoad()
     setState (State::Ready, "ENGINE READY  /  LOADED IN " + juce::String (secs, 1) + " s");
 }
 
+bool AiEngine::ensureLm()
+{
+    if (lmCtx != nullptr)
+        return true;
+
+    juce::File lmPath;
+    {
+        const juce::ScopedLock sl (modelLock);
+        lmPath = models.lm;
+    }
+
+    if (! lmPath.existsAsFile())
+        return false;
+
+    setState (State::Loading, "LOADING VOCALS LM (4B)");
+
+    AceLmParams lp;
+    ace_lm_default_params (&lp);
+
+    const juce::String path = lmPath.getFullPathName();
+    lp.model_path = path.toRawUTF8();
+    lp.use_fa = true;
+
+    lmCtx = ace_lm_load (&lp);
+    return lmCtx != nullptr;
+}
+
+void AiEngine::doLyrics (const Job& job)
+{
+    Result result;
+    result.kind   = Kind::Lyrics;
+    result.prompt = job.prompt;
+    result.seed   = job.seed;
+
+    if (! ensureLm())
+    {
+        setState (State::Error, "LYRICS MODEL MISSING",
+                  "Point MODEL DIR at a folder containing the 4B LM.");
+    }
+    else
+    {
+        setState (State::Generating, "WRITING LYRICS: " + job.prompt.substring (0, 40));
+
+        AceRequest req;
+        request_init (&req);
+
+        const auto caption = job.prompt.toStdString();
+        const auto key     = job.keyscale.toStdString();
+
+        req.caption         = caption;
+        req.bpm             = job.bpm;
+        req.duration        = juce::jmax (3.0f, job.duration);
+        req.keyscale        = key;
+        req.timesignature   = "4/4";
+        req.batch_size      = 1;
+        req.seed            = job.seed >= 0 ? job.seed : -1;
+        req.inference_steps = juce::jmax (1, job.steps);
+        req.guidance_scale  = job.guidance;
+        req.shift           = job.shift;
+        req.vocal_language  = job.language.toStdString();
+
+        const int rc = ace_lm_generate (static_cast<AceLm*> (lmCtx), &req, 1, &req,
+                                        nullptr, nullptr,
+                                        [] (void* data) -> bool
+                                        {
+                                            return static_cast<AiEngine*> (data)->cancelFlag.load();
+                                        },
+                                        this);
+
+        if (rc != 0)
+        {
+            if (cancelFlag.load())
+                setState (State::Ready, "LYRICS CANCELLED");
+            else
+                setState (State::Error, "LYRICS FAILED", "ace_lm_generate() returned an error.");
+        }
+        else
+        {
+            result.lyrics = juce::String (req.lyrics.c_str());
+            setState (State::Ready, "LYRICS READY  /  "
+                                        + juce::String (result.lyrics.length()) + " CHARACTERS");
+        }
+    }
+
+    // A lyrics job is a control message, not audio: it is valid even when the
+    // text is empty, so the page can tell "failed" apart from "still cooking".
+    result.valid = true;
+
+    {
+        const juce::ScopedLock sl (resultLock);
+        pendingResult = std::move (result);
+    }
+}
+
 void AiEngine::doGenerate (const Job& job)
 {
     auto* ctx = static_cast<AceSynth*> (synth);
@@ -525,29 +628,9 @@ void AiEngine::doGenerate (const Job& job)
     // Vocals: enrich the request (lyrics + vocal audio codes) via the 4B LM.
     if (job.withVocals && ! caption.empty())
     {
-        juce::File lmPath;
+        if (ensureLm())
         {
-            const juce::ScopedLock sl (modelLock);
-            lmPath = models.lm;
-        }
-
-        if (lmCtx == nullptr && lmPath.existsAsFile())
-        {
-            setState (State::Loading, "LOADING VOCALS LM (4B)");
-
-            AceLmParams lp;
-            ace_lm_default_params (&lp);
-
-            const juce::String lpStr = lmPath.getFullPathName();
-            lp.model_path = lpStr.toRawUTF8();
-            lp.use_fa = true;
-
-            lmCtx = ace_lm_load (&lp);
-        }
-
-        if (lmCtx != nullptr)
-        {
-            req.vocal_language = "en";
+            req.vocal_language = job.language.toStdString();
             setState (State::Generating, "WRITING LYRICS + VOCALS: " + job.prompt.substring (0, 40));
 
             const int lmRc = ace_lm_generate (static_cast<AceLm*> (lmCtx), &req, 1, &req,
@@ -973,6 +1056,7 @@ juce::String AiEngine::cacheKeyFor (const Job& job) const
 
     juce::String signature;
     signature << job.prompt << "|" << job.lyrics << "|" << job.keyscale << "|"
+              << job.language << "|"
               << job.bpm << "|" << juce::String (job.duration, 3) << "|"
               << job.steps << "|" << juce::String (job.guidance, 3) << "|"
               << juce::String (job.shift, 3) << "|" << job.seed << "|"

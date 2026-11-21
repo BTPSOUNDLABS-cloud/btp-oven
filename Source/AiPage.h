@@ -82,6 +82,9 @@ private:
     void loadMasterPresets();
     void applyPreset (int index);
     void generate();
+    void writeLyrics();          // ask the 4B LM for lyrics from the prompt
+    void submitAudio();          // the part that actually renders audio
+    juce::String languageCode() const;
     void applyLora();
     void pickModelDir();
     void newDataset();
@@ -126,6 +129,7 @@ private:
         juce::String prompt, lyrics, language, mode;
         double duration = -1.0, steps = -1.0, guidance = -1.0, bpm = -1.0, seed = -2.0;
         bool vocals = false;
+        bool autoLyrics = false;
         bool valid = false;
 
         bool sameAs (const SavedUi& other) const
@@ -134,7 +138,8 @@ private:
                 && language == other.language && mode == other.mode
                 && duration == other.duration && steps == other.steps
                 && guidance == other.guidance && bpm == other.bpm
-                && seed == other.seed && vocals == other.vocals;
+                && seed == other.seed && vocals == other.vocals
+                && autoLyrics == other.autoLyrics;
         }
     };
 
@@ -162,6 +167,12 @@ private:
     juce::TextButton* cancelButton = nullptr;
     juce::TextButton* vocalsButton = nullptr;
     juce::TextButton* loraTrainButton = nullptr;
+    juce::TextButton* autoLyricsButton = nullptr;
+    juce::TextButton* writeLyricsButton = nullptr;
+
+    bool autoLyrics = false;                 // write lyrics before singing
+    bool pendingAudioAfterLyrics = false;    // a lyric job is running for this
+    int  lastLyricsSeq = 0;
 
     std::unique_ptr<LoraTrainDialog> loraDialog;
 

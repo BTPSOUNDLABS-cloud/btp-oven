@@ -97,6 +97,11 @@ public:
     juce::String getAiResultPrompt() const { return aiResultPrompt; }
     juce::String getAiResultLyrics() const { return aiResultLyrics; }
     const juce::AudioBuffer<float>& getAiResult() const { return lastAiAudio; }
+
+    /** Text written by the last "write lyrics" job, and a counter that changes
+        when a new one arrives. Both are message-thread only. */
+    juce::String getAiLyricsDraft() const { return aiLyricsDraft; }
+    int getAiLyricsSeq() const { return aiLyricsSeq; }
     bool   sendAiResultToLoop (int loopIndex);
 
     // One-shot generation (message thread)
@@ -180,6 +185,8 @@ private:
     juce::int64  aiResultSeed = 0;
     juce::String aiResultPrompt;
     juce::String aiResultLyrics;
+    juce::String aiLyricsDraft;
+    int          aiLyricsSeq = 0;
     bool         aiTakeLoaded = false;
 
     // Last one-shot take (previewed/saved, not auto-routed to a loop).
