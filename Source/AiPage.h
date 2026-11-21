@@ -108,6 +108,10 @@ private:
     std::unique_ptr<juce::TextEditor> promptEditor;
     std::unique_ptr<juce::TextEditor> lyricsEditor;
     std::unique_ptr<juce::ComboBox> presetBox;
+    std::unique_ptr<juce::ComboBox> languageBox;
+    juce::String modePrefix;
+
+    void applyMode (int mode);
     std::unique_ptr<juce::ListBox> datasetList;
     std::unique_ptr<juce::ComboBox> loraBox;
     std::unique_ptr<juce::Label> loraScaleLabel;

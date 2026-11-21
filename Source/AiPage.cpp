@@ -232,6 +232,21 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
 
     //==========================================================================
     // Generation controls
+    languageBox = std::make_unique<juce::ComboBox> ("language");
+    languageBox->addItemList ({ "English", "Spanish", "Portuguese", "French", "German",
+                                "Japanese", "Korean", "Hindi", "Arabic", "Yoruba" }, 1);
+    languageBox->setSelectedId (1, juce::dontSendNotification);
+    languageBox->setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff080a08));
+    languageBox->setColour (juce::ComboBox::textColourId, lime);
+    languageBox->setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff2a2e33));
+    languageBox->setColour (juce::ComboBox::arrowColourId, lime);
+    languageBox->setTooltip ("Language hint for generated lyrics and vocals");
+    addAndMakeVisible (*languageBox);
+
+    addAction ("LOOP", { 212.0f, 198.0f, 110.0f, 22.0f }, [this] { applyMode (0); });
+    addAction ("FULL TRACK", { 330.0f, 198.0f, 130.0f, 22.0f }, [this] { applyMode (1); });
+    addAction ("VOCAL ONLY", { 468.0f, 198.0f, 130.0f, 22.0f }, [this] { applyMode (2); });
+
     durationSlider  = addControlKnob ("DURATION", { 18.0f, 494.0f, 100.0f, 84.0f });
     stepsSlider     = addControlKnob ("STEPS",    { 122.0f, 494.0f, 100.0f, 84.0f });
     guidanceSlider  = addControlKnob ("GUIDANCE", { 226.0f, 494.0f, 100.0f, 84.0f });
@@ -700,6 +715,39 @@ void AiPage::applyPreset (int index)
     processor.setStatusMessage ("PRESET -> " + obj->getProperty ("name").toString().toUpperCase());
 }
 
+void AiPage::applyMode (int mode)
+{
+    if (durationSlider == nullptr || stepsSlider == nullptr)
+        return;
+
+    if (mode == 0)          // loopable melody
+    {
+        durationSlider->setValue (8.0);
+        stepsSlider->setValue (8.0);
+        modePrefix = "short loopable melody, no vocals";
+        if (vocalsButton != nullptr)
+            vocalsButton->setToggleState (false, juce::sendNotification);
+    }
+    else if (mode == 1)     // full track
+    {
+        durationSlider->setValue (30.0);
+        stepsSlider->setValue (10.0);
+        modePrefix = "full arrangement";
+        if (vocalsButton != nullptr)
+            vocalsButton->setToggleState (true, juce::sendNotification);
+    }
+    else                    // vocal only
+    {
+        durationSlider->setValue (12.0);
+        stepsSlider->setValue (8.0);
+        modePrefix = "a cappella lead vocal, instrumental stripped back";
+        if (vocalsButton != nullptr)
+            vocalsButton->setToggleState (true, juce::sendNotification);
+    }
+
+    processor.setStatusMessage (modePrefix.toUpperCase());
+}
+
 //==============================================================================
 void AiPage::generate()
 {
@@ -718,6 +766,12 @@ void AiPage::generate()
     job.shift    = 3.0f;
     job.bpm      = juce::roundToInt (bpmSlider->getValue());
     job.seed     = (juce::int64) std::llround (seedSlider->getValue());
+    if (modePrefix.isNotEmpty())
+        job.prompt = modePrefix + ", " + job.prompt;
+
+    if (languageBox != nullptr && languageBox->getSelectedId() > 1)
+        job.prompt = job.prompt + ", vocals sung in " + languageBox->getText();
+
     job.withVocals = vocalsButton != nullptr && vocalsButton->getToggleState();
 
     const int root  = (int) std::lround (processor.apvts.getRawParameterValue ("key_root")->load());
@@ -1078,6 +1132,9 @@ void AiPage::resized()
 
     if (presetBox != nullptr)
         presetBox->setBounds (R (14.0f, 174.0f, 672.0f, 18.0f));
+
+    if (languageBox != nullptr)
+        languageBox->setBounds (R (14.0f, 198.0f, 190.0f, 22.0f));
 
     datasetList->setBounds (R (580.0f, 488.0f, 554.0f, 96.0f));
     loraBox->setBounds (R (566.0f, 644.0f, 240.0f, 28.0f));

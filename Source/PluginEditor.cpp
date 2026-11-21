@@ -1287,31 +1287,34 @@ void BtPOvenAudioProcessorEditor::capturePages (const juce::File& folder)
             png.writeImageToStream (image, *stream);
     };
 
-    auto showOnly = [this] (bool vocal, bool master, bool rack)
+    auto showOnly = [this] (bool vocal, bool master, bool rack, bool ai)
     {
         chainVocalVisible = vocal;
         chainMasterVisible = master;
         rackChainVisible = rack;
         rackPageVisible = false;
-        aiPageVisible = false;
+        aiPageVisible = ai;
         stemPageVisible = false;
         oneShotPageVisible = false;
         rvcPageVisible = false;
-        setMainPageVisible (! (vocal || master || rack));
+        setMainPageVisible (! (vocal || master || rack || ai));
         resized();
     };
 
-    showOnly (false, false, false);
+    showOnly (false, false, false, false);
     shot ("page-main");
 
-    showOnly (true, false, false);
+    showOnly (true, false, false, false);
     shot ("page-vox");
 
-    showOnly (false, true, false);
+    showOnly (false, true, false, false);
     shot ("page-master");
 
-    showOnly (false, false, true);
+    showOnly (false, false, true, false);
     shot ("page-stack");
 
-    showOnly (false, false, false);
+    showOnly (false, false, false, true);
+    shot ("page-ai");
+
+    showOnly (false, false, false, false);
 }
