@@ -480,11 +480,16 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
     refreshLoras();
     loadMasterPresets();
 
+    restoreState();
+
     startTimerHz (10);
 }
 
 AiPage::~AiPage()
 {
+    // Capture the working state while the widgets still exist.
+    saveState();
+
     stopTimer();
 
     // Tear down in dependency order: attachments and lists before the widgets
@@ -1474,8 +1479,191 @@ void AiPage::paintEngineStatus (juce::Graphics& g, juce::Rectangle<float> area)
 }
 
 //==============================================================================
+// Working state
+//==============================================================================
+AiPage::SavedUi AiPage::snapshot() const
+{
+    SavedUi now;
+    now.prompt   = promptEditor  != nullptr ? promptEditor->getText() : juce::String();
+    now.lyrics   = lyricsEditor  != nullptr ? lyricsEditor->getText() : juce::String();
+    now.language = languageBox   != nullptr ? languageBox->getText()  : juce::String();
+    now.mode     = modePrefix;
+    now.vocals   = vocalsButton  != nullptr && vocalsButton->getToggleState();
+    now.duration = durationSlider != nullptr ? durationSlider->getValue() : -1.0;
+    now.steps    = stepsSlider    != nullptr ? stepsSlider->getValue()    : -1.0;
+    now.guidance = guidanceSlider != nullptr ? guidanceSlider->getValue() : -1.0;
+    now.bpm      = bpmSlider      != nullptr ? bpmSlider->getValue()      : -1.0;
+    now.seed     = seedSlider     != nullptr ? seedSlider->getValue()     : -2.0;
+    now.valid    = true;
+    return now;
+}
+
+void AiPage::saveState()
+{
+    const auto now = snapshot();
+
+    // The timer calls this ten times a second; only touch the tree on change,
+    // otherwise every tick would look like an edit to the host.
+    if (lastSaved.valid && lastSaved.sameAs (now))
+        return;
+
+    auto tree = processor.apvts.state;
+    tree.setProperty ("ai_prompt",   now.prompt,   nullptr);
+    tree.setProperty ("ai_lyrics",   now.lyrics,   nullptr);
+    tree.setProperty ("ai_language", now.language, nullptr);
+    tree.setProperty ("ai_mode",     now.mode,     nullptr);
+    tree.setProperty ("ai_duration", now.duration, nullptr);
+    tree.setProperty ("ai_steps",    now.steps,    nullptr);
+    tree.setProperty ("ai_guidance", now.guidance, nullptr);
+    tree.setProperty ("ai_bpm",      now.bpm,      nullptr);
+    tree.setProperty ("ai_seed",     now.seed,     nullptr);
+    tree.setProperty ("ai_vocals",   now.vocals,   nullptr);
+
+    // A DAW hands this back with the project. The standalone app has no host,
+    // and JUCE does not reliably write its settings on exit, so keep our own
+    // copy as well. It is a few hundred bytes and only written on change.
+    writeStandaloneState (now);
+
+    lastSaved = now;
+}
+
+juce::File AiPage::uiStateFile()
+{
+    return btpai::getConfigDir().getChildFile ("ui_state.json");
+}
+
+void AiPage::writeStandaloneState (const SavedUi& ui) const
+{
+    auto* obj = new juce::DynamicObject();
+
+    obj->setProperty ("prompt",   ui.prompt);
+    obj->setProperty ("lyrics",   ui.lyrics);
+    obj->setProperty ("language", ui.language);
+    obj->setProperty ("mode",     ui.mode);
+    obj->setProperty ("duration", ui.duration);
+    obj->setProperty ("steps",    ui.steps);
+    obj->setProperty ("guidance", ui.guidance);
+    obj->setProperty ("bpm",      ui.bpm);
+    obj->setProperty ("seed",     ui.seed);
+    obj->setProperty ("vocals",   ui.vocals);
+
+    const auto file = uiStateFile();
+    file.getParentDirectory().createDirectory();
+    file.replaceWithText (juce::JSON::toString (juce::var (obj), false));
+}
+
+bool AiPage::readStandaloneState (SavedUi& out) const
+{
+    const auto file = uiStateFile();
+    if (! file.existsAsFile())
+        return false;
+
+    const auto parsed = juce::JSON::parse (file.loadFileAsString());
+    auto* obj = parsed.getDynamicObject();
+    if (obj == nullptr)
+        return false;
+
+    auto number = [obj] (const char* key, double fallback)
+    {
+        const auto value = obj->getProperty (key);
+        return value.isVoid() ? fallback : (double) value;
+    };
+
+    out.prompt   = obj->getProperty ("prompt").toString();
+    out.lyrics   = obj->getProperty ("lyrics").toString();
+    out.language = obj->getProperty ("language").toString();
+    out.mode     = obj->getProperty ("mode").toString();
+    out.vocals   = (bool) obj->getProperty ("vocals");
+    out.duration = number ("duration", -1.0);
+    out.steps    = number ("steps",    -1.0);
+    out.guidance = number ("guidance", -1.0);
+    out.bpm      = number ("bpm",      -1.0);
+    out.seed     = number ("seed",     -2.0);
+    out.valid    = true;
+    return true;
+}
+
+void AiPage::applyUi (const SavedUi& ui)
+{
+    if (promptEditor != nullptr)
+        promptEditor->setText (ui.prompt, false);
+
+    if (lyricsEditor != nullptr)
+        lyricsEditor->setText (ui.lyrics, false);
+
+    if (languageBox != nullptr && ui.language.isNotEmpty())
+    {
+        for (int i = 0; i < languageBox->getNumItems(); ++i)
+        {
+            if (languageBox->getItemText (i) == ui.language)
+            {
+                languageBox->setSelectedItemIndex (i, juce::dontSendNotification);
+                break;
+            }
+        }
+    }
+
+    modePrefix = ui.mode;
+
+    if (vocalsButton != nullptr)
+        vocalsButton->setToggleState (ui.vocals, juce::dontSendNotification);
+
+    auto restoreSlider = [] (juce::Slider* slider, double value)
+    {
+        if (slider != nullptr && value >= -1.0)
+            slider->setValue (value, juce::dontSendNotification);
+    };
+
+    restoreSlider (durationSlider, ui.duration);
+    restoreSlider (stepsSlider,    ui.steps);
+    restoreSlider (guidanceSlider, ui.guidance);
+    restoreSlider (bpmSlider,      ui.bpm);
+    restoreSlider (seedSlider,     ui.seed);
+}
+
+void AiPage::restoreState()
+{
+    if (promptEditor == nullptr || lyricsEditor == nullptr)
+        return;
+
+    // Plugin in a DAW: the project's state is authoritative.
+    const auto tree = processor.apvts.state;
+
+    SavedUi ui;
+
+    if (tree.hasProperty ("ai_prompt"))
+    {
+        ui.prompt   = tree.getProperty ("ai_prompt").toString();
+        ui.lyrics   = tree.getProperty ("ai_lyrics").toString();
+        ui.language = tree.getProperty ("ai_language").toString();
+        ui.mode     = tree.getProperty ("ai_mode").toString();
+        ui.vocals   = (bool) tree.getProperty ("ai_vocals");
+        ui.duration = (double) tree.getProperty ("ai_duration", -1.0);
+        ui.steps    = (double) tree.getProperty ("ai_steps",    -1.0);
+        ui.guidance = (double) tree.getProperty ("ai_guidance", -1.0);
+        ui.bpm      = (double) tree.getProperty ("ai_bpm",      -1.0);
+        ui.seed     = (double) tree.getProperty ("ai_seed",     -2.0);
+        ui.valid    = true;
+    }
+    else if (! readStandaloneState (ui))
+    {
+        // Nothing stored anywhere: first run. Leave the defaults alone, and
+        // leave lastSaved invalid so the next tick writes them out once.
+        lastSaved = SavedUi();
+        return;
+    }
+
+    applyUi (ui);
+    lastSaved = snapshot();
+}
+
+//==============================================================================
 void AiPage::timerCallback()
 {
+    // Persist any edit made since the last tick, so a close at any moment keeps
+    // what the user last saw.
+    saveState();
+
     shimmerTime += 1.0f / 10.0f;
 
     if (shimmerTime > 1000.0f)

@@ -85,6 +85,10 @@ BtPOvenAudioProcessor::BtPOvenAudioProcessor()
 BtPOvenAudioProcessor::~BtPOvenAudioProcessor()
 {
     stopTimer();
+
+    // Any queued "state loaded" callback must find this false and do nothing.
+    *aliveToken = false;
+
     RvcEngine::getInstance().shutdown();
    #if BTP_HAS_RAVE
     RaveEngine::getInstance().shutdown();
@@ -1486,7 +1490,19 @@ void BtPOvenAudioProcessor::setStateInformation (const void* data, int sizeInByt
     auto tree = juce::ValueTree::fromXml (*xml);
 
     if (tree.isValid())
+    {
         apvts.replaceState (tree);
+
+        // Pages cannot be touched from an arbitrary thread, and the host may
+        // restore state before or after an editor exists. Post it and let the
+        // page read the tree on the message thread.
+        auto token = aliveToken;
+        juce::MessageManager::callAsync ([this, token]
+        {
+            if (*token && onStateLoaded != nullptr)
+                onStateLoaded();
+        });
+    }
 }
 
 //==============================================================================

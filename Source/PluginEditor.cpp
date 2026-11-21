@@ -45,6 +45,10 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
             toggleAiPage();
     };
 
+    // The host may load a project at any time; the AI page re-reads its working
+    // state from the tree when that happens.
+    processor.onStateLoaded = [this] { aiPage.restoreState(); };
+
     addAndMakeVisible (stemPage);
     stemPage.setVisible (false);
     stemPage.onMainPage = [this]
@@ -403,6 +407,7 @@ BtPOvenAudioProcessorEditor::BtPOvenAudioProcessorEditor (BtPOvenAudioProcessor&
 BtPOvenAudioProcessorEditor::~BtPOvenAudioProcessorEditor()
 {
     stopTimer();
+    processor.onStateLoaded = nullptr;
     setLookAndFeel (nullptr);
 }
 

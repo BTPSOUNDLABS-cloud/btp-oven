@@ -36,6 +36,9 @@ public:
     /** Wired to the editor's MAIN PAGE / header button. */
     std::function<void()> onMainPage;
 
+    /** Re-reads working state from the APVTS tree after the host loads a project. */
+    void restoreState();
+
 private:
     //==========================================================================
     struct ControlKnob
@@ -112,6 +115,38 @@ private:
     juce::String modePrefix;
 
     void applyMode (int mode);
+
+    // Working state survives close/reopen. In a DAW it lives in the APVTS tree,
+    // so the host stores it with the project. Standalone has no host to ask, so
+    // it also keeps a small JSON file and reloads from that on open.
+    // Nothing here is a parameter: it is scratch state, not automation.
+
+    struct SavedUi
+    {
+        juce::String prompt, lyrics, language, mode;
+        double duration = -1.0, steps = -1.0, guidance = -1.0, bpm = -1.0, seed = -2.0;
+        bool vocals = false;
+        bool valid = false;
+
+        bool sameAs (const SavedUi& other) const
+        {
+            return prompt == other.prompt && lyrics == other.lyrics
+                && language == other.language && mode == other.mode
+                && duration == other.duration && steps == other.steps
+                && guidance == other.guidance && bpm == other.bpm
+                && seed == other.seed && vocals == other.vocals;
+        }
+    };
+
+    void saveState();
+    void applyUi (const SavedUi&);
+    static juce::File uiStateFile();
+    bool readStandaloneState (SavedUi& out) const;
+    void writeStandaloneState (const SavedUi&) const;
+
+    SavedUi snapshot() const;
+    SavedUi lastSaved;
+
     std::unique_ptr<juce::ListBox> datasetList;
     std::unique_ptr<juce::ComboBox> loraBox;
     std::unique_ptr<juce::Label> loraScaleLabel;

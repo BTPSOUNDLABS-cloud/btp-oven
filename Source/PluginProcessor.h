@@ -51,6 +51,11 @@ public:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     juce::AudioProcessorValueTreeState apvts;
 
+    // Fired on the message thread after the host restores state, so pages can
+    // reload their working state instead of showing stale widgets. The editor
+    // installs it; it must be cleared before the editor dies.
+    std::function<void()> onStateLoaded;
+
     //==========================================================================
     // Loop transport (message thread)
     void beginRecord (int loopIndex, bool overdub);
@@ -225,5 +230,8 @@ public:
     EngineService& getEngine() noexcept { return engineService; }
 
 private:
+    // A pending async "state loaded" callback must not outlive the processor.
+    std::shared_ptr<bool> aliveToken = std::make_shared<bool> (true);
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (BtPOvenAudioProcessor)
 };
