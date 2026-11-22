@@ -1543,6 +1543,44 @@ juce::AudioProcessorEditor* BtPOvenAudioProcessor::createEditor()
 }
 
 //==============================================================================
+void BtPOvenAudioProcessor::requestMidi (const juce::String& prompt, int bpm,
+                                         int bars, int seed, int vary)
+{
+    auto* object = new juce::DynamicObject();
+    object->setProperty ("type", "midi");
+    object->setProperty ("prompt", prompt);
+    object->setProperty ("bpm", bpm);
+    object->setProperty ("bars", bars);
+    object->setProperty ("seed", seed);
+    object->setProperty ("vary", juce::jlimit (1, 8, vary));
+
+    midiStatus = "COMPOSING MIDI...";
+
+    // The engine answers on the message thread; the token guards against the
+    // processor being destroyed while a reply is queued.
+    auto token = aliveToken;
+    engineService.post (juce::var (object), 20000, [this, token] (const EngineReply& reply)
+    {
+        if (! *token)
+            return;
+
+        if (! reply.ok)
+        {
+            midiStatus = "MIDI: " + reply.describe();
+            ++midiSeq;
+            setStatusMessage ("MIDI FAILED  /  " + reply.describe());
+            return;
+        }
+
+        midiResult = reply.data;
+        midiStatus = "MIDI READY";
+        ++midiSeq;
+
+        setStatusMessage ("MIDI SKETCHES READY - DRAG ONE INTO FL");
+    });
+}
+
+//==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new BtPOvenAudioProcessor();

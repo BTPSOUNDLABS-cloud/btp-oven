@@ -102,6 +102,12 @@ public:
         when a new one arrives. Both are message-thread only. */
     juce::String getAiLyricsDraft() const { return aiLyricsDraft; }
     int getAiLyricsSeq() const { return aiLyricsSeq; }
+
+    /** MIDI sketches from the engine. requestMidi() is async; poll the seq. */
+    void requestMidi (const juce::String& prompt, int bpm, int bars, int seed, int vary = 3);
+    juce::var getMidiResult() const { return midiResult; }
+    int getMidiSeq() const { return midiSeq; }
+    juce::String getMidiStatus() const { return midiStatus; }
     bool   sendAiResultToLoop (int loopIndex);
 
     // One-shot generation (message thread)
@@ -187,6 +193,10 @@ private:
     juce::String aiResultLyrics;
     juce::String aiLyricsDraft;
     int          aiLyricsSeq = 0;
+
+    juce::var    midiResult;
+    juce::String midiStatus;
+    int          midiSeq = 0;
     bool         aiTakeLoaded = false;
 
     // Last one-shot take (previewed/saved, not auto-routed to a loop).

@@ -1,4 +1,4 @@
-#include "AiPage.h"
+﻿#include "AiPage.h"
 #include "ModelPaths.h"
 
 //==============================================================================
@@ -119,11 +119,248 @@ private:
     std::function<void (const juce::String&)> commit;
 };
 
+//==============================================================================
+/** One MIDI take: title, piano roll, and a drag handle for the .mid file. */
+class MidiCard final : public juce::Component
+{
+public:
+    void setSketch (const juce::var& value)
+    {
+        sketch = value;
+        path = value.getProperty ("path", juce::var{}).toString();
+        repaint();
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        auto area = getLocalBounds().toFloat();
+        const auto accent = OvenLookAndFeel::lime();
+        const bool armed = path.isNotEmpty() && juce::File (path).existsAsFile();
+
+        g.setColour (juce::Colour (0xff0a0d0a));
+        g.fillRoundedRectangle (area, 5.0f);
+        g.setColour (armed ? accent.withAlpha (0.55f) : juce::Colour (0xff2a2e33));
+        g.drawRoundedRectangle (area.reduced (0.5f), 5.0f, 1.0f);
+
+        auto header = area.removeFromTop (18.0f).reduced (8.0f, 0.0f);
+
+        if (! armed)
+        {
+            g.setColour (OvenLookAndFeel::cream().withAlpha (0.35f));
+            g.setFont (juce::Font (juce::FontOptions (11.0f)));
+            g.drawFittedText ("EMPTY - PRESS COMPOSE 3", header.toNearestInt(),
+                              juce::Justification::centredLeft, 1);
+            return;
+        }
+
+        const auto seed = (juce::int64) sketch.getProperty ("seed", 0);
+        const auto count = (int) sketch.getProperty ("note_count", 0);
+
+        g.setColour (accent);
+        g.setFont (juce::Font (juce::FontOptions (11.0f)));
+        g.drawFittedText ("TAKE " + juce::String (takeNumber) + "   SEED " + juce::String (seed)
+                              + "   " + juce::String (count) + " NOTES",
+                          header.toNearestInt(), juce::Justification::centredLeft, 1);
+
+        g.setColour (OvenLookAndFeel::cream().withAlpha (0.45f));
+        g.drawFittedText ("DRAG TO FL", header.toNearestInt(),
+                          juce::Justification::centredRight, 1);
+
+        auto roll = area.reduced (8.0f, 2.0f).withTrimmedBottom (4.0f);
+        if (roll.getHeight() < 8.0f)
+            return;
+
+        g.setColour (juce::Colour (0xff050705));
+        g.fillRoundedRectangle (roll, 3.0f);
+
+        auto* layers = sketch.getProperty ("layers", juce::var{}).getDynamicObject();
+        if (layers == nullptr)
+            return;
+
+        int lowPitch = 127, highPitch = 0;
+        double endBeat = 1.0;
+
+        for (auto& item : layers->getProperties())
+        {
+            auto* layer = item.value.getDynamicObject();
+            if (layer == nullptr)
+                continue;
+
+            if (auto* notes = layer->getProperty ("notes").getArray())
+            {
+                for (auto& note : *notes)
+                {
+                    const int pitch = (int) note.getProperty ("midi", 60);
+                    lowPitch = juce::jmin (lowPitch, pitch);
+                    highPitch = juce::jmax (highPitch, pitch);
+                    endBeat = juce::jmax (endBeat,
+                                          (double) note.getProperty ("start", 0.0)
+                                              + (double) note.getProperty ("duration", 0.0));
+                }
+            }
+        }
+
+        if (highPitch <= lowPitch)
+            return;
+
+        lowPitch -= 2;
+        highPitch += 2;
+
+        for (auto& item : layers->getProperties())
+        {
+            auto* layer = item.value.getDynamicObject();
+            if (layer == nullptr)
+                continue;
+
+            auto* notes = layer->getProperty ("notes").getArray();
+            if (notes == nullptr)
+                continue;
+
+            const auto name = item.name.toString();
+            juce::Colour colour = OvenLookAndFeel::lime().withAlpha (0.85f);
+
+            if (name == "bass")       colour = juce::Colour (0xff8fe6c8);
+            else if (name == "top")   colour = juce::Colour (0xffe0b46a);
+            else if (name == "drums") colour = juce::Colour (0xffff6a8a);
+            else if (name == "chords") colour = juce::Colour (0xff9db7ff);
+
+            g.setColour (colour);
+
+            for (auto& note : *notes)
+            {
+                const double start = (double) note.getProperty ("start", 0.0);
+                const double duration = juce::jmax (0.02, (double) note.getProperty ("duration", 0.1));
+                const int pitch = (int) note.getProperty ("midi", 60);
+
+                const float x0 = roll.getX() + roll.getWidth() * (float) (start / endBeat);
+                const float x1 = roll.getX() + roll.getWidth()
+                                     * (float) (juce::jmin (endBeat, start + duration) / endBeat);
+                const float y = roll.getBottom()
+                                - roll.getHeight() * (float) (pitch - lowPitch)
+                                      / (float) (highPitch - lowPitch);
+
+                g.fillRect (juce::Rectangle<float> (x0, y - 1.5f,
+                                                    juce::jmax (1.5f, x1 - x0), 3.0f));
+            }
+        }
+    }
+
+    void mouseDrag (const juce::MouseEvent&) override
+    {
+        if (path.isEmpty() || ! juce::File (path).existsAsFile())
+            return;
+
+        juce::DragAndDropContainer::performExternalDragDropOfFiles ({ path }, false, this);
+    }
+
+    int takeNumber = 1;
+
+private:
+    juce::var sketch;
+    juce::String path;
+};
+
+//==============================================================================
+/** The three MIDI takes, with drag-out. Opened from the AI page. */
+class AiMidiWindow final : public juce::DocumentWindow
+{
+public:
+    AiMidiWindow()
+        : juce::DocumentWindow ("MIDI SKETCHES", juce::Colour (0xff0b0d10),
+                                juce::DocumentWindow::closeButton)
+    {
+        setUsingNativeTitleBar (true);
+        setResizable (true, true);
+
+        auto* body = new Body (*this);
+        setContentOwned (body, true);
+        bodyPtr = body;
+        setSize (940, 500);
+    }
+
+    /** Called by COMPOSE 3; the page supplies the prompt and settings. */
+    std::function<void()> onCompose;
+
+    void refresh (const juce::var& data, const juce::String& status)
+    {
+        bodyPtr->setSketches (data, status);
+    }
+
+    void closeButtonPressed() override { setVisible (false); }
+
+private:
+    class Body final : public juce::Component
+    {
+    public:
+        explicit Body (AiMidiWindow& o) : owner (o)
+        {
+            one.takeNumber = 1;
+            two.takeNumber = 2;
+            three.takeNumber = 3;
+
+            for (auto* card : { &one, &two, &three })
+                addAndMakeVisible (*card);
+
+            compose.setButtonText ("COMPOSE 3");
+            compose.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff1a1f24));
+            compose.setColour (juce::TextButton::textColourOffId, OvenLookAndFeel::lime());
+            compose.onClick = [this] { if (owner.onCompose != nullptr) owner.onCompose(); };
+            addAndMakeVisible (compose);
+
+            status.setColour (juce::Label::textColourId,
+                              OvenLookAndFeel::cream().withAlpha (0.6f));
+            status.setFont (juce::Font (juce::FontOptions (11.5f)));
+            addAndMakeVisible (status);
+        }
+
+        void setSketches (const juce::var& data, const juce::String& text)
+        {
+            status.setText (text, juce::dontSendNotification);
+
+            auto* array = data.getProperty ("sketches", juce::var{}).getArray();
+            MidiCard* cards[3] { &one, &two, &three };
+
+            for (int i = 0; i < 3; ++i)
+                cards[i]->setSketch (array != nullptr && i < array->size()
+                                         ? (*array)[i]
+                                         : juce::var());
+        }
+
+        void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff0b0d10)); }
+
+        void resized() override
+        {
+            auto area = getLocalBounds().reduced (12);
+
+            auto top = area.removeFromTop (32);
+            compose.setBounds (top.removeFromRight (150).reduced (2));
+            status.setBounds (top);
+
+            area.removeFromTop (8);
+
+            const int cardHeight = juce::jmax (70, (area.getHeight() - 16) / 3);
+
+            one.setBounds (area.removeFromTop (cardHeight));
+            area.removeFromTop (8);
+            two.setBounds (area.removeFromTop (cardHeight));
+            area.removeFromTop (8);
+            three.setBounds (area);
+        }
+
+    private:
+        AiMidiWindow& owner;
+        MidiCard one, two, three;
+        juce::TextButton compose;
+        juce::Label status;
+    };
+
+    Body* bodyPtr = nullptr;
+};
+
 namespace
 {
     constexpr float kWidth  = 1148.0f;
     constexpr float kHeight = 692.0f;
-
     constexpr int kPeakCount = 260;
 
     juce::String stateName (AiEngine::State s)
@@ -384,6 +621,21 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
     addAction ("LOOP", { 212.0f, 198.0f, 110.0f, 22.0f }, [this] { applyMode (0); });
     addAction ("FULL TRACK", { 330.0f, 198.0f, 130.0f, 22.0f }, [this] { applyMode (1); });
     addAction ("VOCAL ONLY", { 468.0f, 198.0f, 130.0f, 22.0f }, [this] { applyMode (2); });
+
+    midiButton = addAction ("MIDI", { 610.0f, 198.0f, 62.0f, 22.0f }, [this]
+    {
+        generateMidi = ! generateMidi;
+
+        if (midiButton != nullptr)
+            midiButton->setToggleState (generateMidi, juce::dontSendNotification);
+
+        processor.setStatusMessage (generateMidi
+                                        ? "MIDI ON - GENERATE ALSO COMPOSES 3 SKETCHES"
+                                        : "MIDI OFF");
+
+        saveState();
+    });
+    midiButton->setTooltip ("Also compose three MIDI sketches from this prompt, then drag one into FL");
 
     durationSlider  = addControlKnob ("DURATION", { 18.0f, 494.0f, 100.0f, 84.0f });
     stepsSlider     = addControlKnob ("STEPS",    { 122.0f, 494.0f, 100.0f, 84.0f });
@@ -963,6 +1215,48 @@ void AiPage::generate()
     }
 
     submitAudio();
+
+    if (generateMidi)
+        requestMidi();
+}
+
+void AiPage::requestMidi()
+{
+    if (promptEditor->getText().trim().isEmpty())
+        return;
+
+    const int bpm = juce::jmax (40, juce::roundToInt (bpmSlider->getValue()));
+    const double seconds = juce::jmax (1.0, durationSlider->getValue());
+
+    // Keep the sketch roughly as long as the audio being generated.
+    const int bars = juce::jlimit (1, 64,
+                                   juce::roundToInt (seconds * bpm / 60.0 / 4.0));
+
+    auto seed = (juce::int64) std::llround (seedSlider->getValue());
+    if (seed < 0)
+        seed = (juce::int64) (juce::Time::currentTimeMillis() % 1000000);
+
+    processor.requestMidi (promptEditor->getText(), bpm, bars, (int) seed, 3);
+
+    if (midiWindow == nullptr)
+        openMidiWindow();
+}
+
+void AiPage::openMidiWindow()
+{
+    if (midiWindow == nullptr)
+    {
+        midiWindow = std::make_unique<AiMidiWindow>();
+        midiWindow->onCompose = [this]
+        {
+            if (! engine.isBusy())
+                requestMidi();
+        };
+    }
+
+    midiWindow->refresh (processor.getMidiResult(), processor.getMidiStatus());
+    midiWindow->setVisible (true);
+    midiWindow->toFront (true);
 }
 
 void AiPage::writeLyrics()
@@ -1754,6 +2048,7 @@ AiPage::SavedUi AiPage::snapshot() const
     now.mode     = modePrefix;
     now.vocals   = vocalsButton  != nullptr && vocalsButton->getToggleState();
     now.autoLyrics = autoLyrics;
+    now.midi       = generateMidi;
     now.duration = durationSlider != nullptr ? durationSlider->getValue() : -1.0;
     now.steps    = stepsSlider    != nullptr ? stepsSlider->getValue()    : -1.0;
     now.guidance = guidanceSlider != nullptr ? guidanceSlider->getValue() : -1.0;
@@ -1784,6 +2079,7 @@ void AiPage::saveState()
     tree.setProperty ("ai_seed",     now.seed,     nullptr);
     tree.setProperty ("ai_vocals",   now.vocals,   nullptr);
     tree.setProperty ("ai_auto_lyrics", now.autoLyrics, nullptr);
+    tree.setProperty ("ai_midi", now.midi, nullptr);
 
     // A DAW hands this back with the project. The standalone app has no host,
     // and JUCE does not reliably write its settings on exit, so keep our own
@@ -1813,6 +2109,7 @@ void AiPage::writeStandaloneState (const SavedUi& ui) const
     obj->setProperty ("seed",     ui.seed);
     obj->setProperty ("vocals",   ui.vocals);
     obj->setProperty ("autoLyrics", ui.autoLyrics);
+    obj->setProperty ("midi", ui.midi);
 
     const auto file = uiStateFile();
     file.getParentDirectory().createDirectory();
@@ -1842,6 +2139,7 @@ bool AiPage::readStandaloneState (SavedUi& out) const
     out.mode     = obj->getProperty ("mode").toString();
     out.vocals   = (bool) obj->getProperty ("vocals");
     out.autoLyrics = (bool) obj->getProperty ("autoLyrics");
+    out.midi = (bool) obj->getProperty ("midi");
     out.duration = number ("duration", -1.0);
     out.steps    = number ("steps",    -1.0);
     out.guidance = number ("guidance", -1.0);
@@ -1880,6 +2178,10 @@ void AiPage::applyUi (const SavedUi& ui)
     if (autoLyricsButton != nullptr)
         autoLyricsButton->setToggleState (autoLyrics, juce::dontSendNotification);
 
+    generateMidi = ui.midi;
+    if (midiButton != nullptr)
+        midiButton->setToggleState (generateMidi, juce::dontSendNotification);
+
     auto restoreSlider = [] (juce::Slider* slider, double value)
     {
         if (slider != nullptr && value >= -1.0)
@@ -1911,6 +2213,7 @@ void AiPage::restoreState()
         ui.mode     = tree.getProperty ("ai_mode").toString();
         ui.vocals   = (bool) tree.getProperty ("ai_vocals");
         ui.autoLyrics = (bool) tree.getProperty ("ai_auto_lyrics");
+        ui.midi = (bool) tree.getProperty ("ai_midi");
         ui.duration = (double) tree.getProperty ("ai_duration", -1.0);
         ui.steps    = (double) tree.getProperty ("ai_steps",    -1.0);
         ui.guidance = (double) tree.getProperty ("ai_guidance", -1.0);
@@ -1940,6 +2243,7 @@ void AiPage::timerCallback()
     // Lyrics arriving from the LM: show them, then sing them if this was an
     // AUTO generate. A hand-written box is never overwritten.
     const int seq = processor.getAiLyricsSeq();
+
     if (seq != lastLyricsSeq)
     {
         lastLyricsSeq = seq;
@@ -1961,6 +2265,19 @@ void AiPage::timerCallback()
         }
 
         saveState();
+    }
+
+    // MIDI sketches return independently of the audio.
+    const int midiTick = processor.getMidiSeq();
+
+    if (midiTick != lastMidiSeq)
+    {
+        lastMidiSeq = midiTick;
+
+        if (midiWindow == nullptr && generateMidi)
+            openMidiWindow();
+        else if (midiWindow != nullptr)
+            midiWindow->refresh (processor.getMidiResult(), processor.getMidiStatus());
     }
 
     shimmerTime += 1.0f / 10.0f;

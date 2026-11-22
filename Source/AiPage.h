@@ -18,6 +18,7 @@
     or generator state.
 */
 class AiBigEditor;
+class AiMidiWindow;
 
 /** A TextEditor that can ask its owner for a bigger window on double-click. */
 struct ExpandableEditor : juce::TextEditor
@@ -100,6 +101,7 @@ private:
     void loadMasterPresets();
     void applyPreset (int index);
     void generate();
+    void requestMidi();          // ask the engine for three sketches
     void writeLyrics();          // ask the 4B LM for lyrics from the prompt
     void submitAudio();          // the part that actually renders audio
     juce::String languageCode() const;
@@ -110,6 +112,7 @@ private:
     void openDatasetFolder();
     void openLoraTrainDialog();
     void openBigEditor (bool forLyrics);
+    void openMidiWindow();
     void startLoraTraining();
 
     void paintPanel (juce::Graphics&, juce::Rectangle<float> design, const juce::String& title,
@@ -153,6 +156,7 @@ private:
         double duration = -1.0, steps = -1.0, guidance = -1.0, bpm = -1.0, seed = -2.0;
         bool vocals = false;
         bool autoLyrics = false;
+        bool midi = false;
         bool valid = false;
 
         bool sameAs (const SavedUi& other) const
@@ -162,7 +166,7 @@ private:
                 && duration == other.duration && steps == other.steps
                 && guidance == other.guidance && bpm == other.bpm
                 && seed == other.seed && vocals == other.vocals
-                && autoLyrics == other.autoLyrics;
+                && autoLyrics == other.autoLyrics && midi == other.midi;
         }
     };
 
@@ -192,6 +196,11 @@ private:
     juce::TextButton* loraTrainButton = nullptr;
     juce::TextButton* autoLyricsButton = nullptr;
     juce::TextButton* writeLyricsButton = nullptr;
+    juce::TextButton* midiButton = nullptr;
+
+    std::unique_ptr<AiMidiWindow> midiWindow;
+    int lastMidiSeq = 0;
+    bool generateMidi = false;
 
     bool autoLyrics = false;                 // write lyrics before singing
     bool pendingAudioAfterLyrics = false;    // a lyric job is running for this
