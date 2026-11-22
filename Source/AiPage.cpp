@@ -1,6 +1,124 @@
 #include "AiPage.h"
 #include "ModelPaths.h"
 
+//==============================================================================
+/** A large, resizable, zoomable editor for the prompt and lyrics fields.
+
+    Double-clicking either field opens this. The text is committed when the
+    window closes or DONE is pressed, so it behaves like editing the field
+    itself rather than a separate copy. */
+class AiBigEditor final : public juce::DocumentWindow
+{
+public:
+    AiBigEditor()
+        : juce::DocumentWindow ("LYRICS", juce::Colour (0xff0b0d10),
+                                juce::DocumentWindow::closeButton)
+    {
+        setUsingNativeTitleBar (true);
+        setResizable (true, false);
+
+        auto* body = new Body (*this);
+        setContentOwned (body, true);
+        bodyPtr = body;
+        setSize (840, 560);
+    }
+
+    void open (const juce::String& title, const juce::String& text,
+               std::function<void (const juce::String&)> onCommit)
+    {
+        commit = std::move (onCommit);
+
+        setName (title);
+        setTitle (title);
+        bodyPtr->setText (text);
+
+        setVisible (true);
+        toFront (true);
+        bodyPtr->grabFocus();
+    }
+
+    void commitAndHide()
+    {
+        if (commit != nullptr)
+            commit (bodyPtr->getText());
+
+        setVisible (false);
+    }
+
+    void closeButtonPressed() override { commitAndHide(); }
+
+private:
+    class Body final : public juce::Component
+    {
+    public:
+        explicit Body (AiBigEditor& o) : owner (o)
+        {
+            editor.setMultiLine (true, true);
+            editor.setReturnKeyStartsNewLine (true);
+            editor.setScrollbarsShown (true);
+            editor.setFont (juce::Font (juce::FontOptions (fontSize)));
+            editor.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff080a08));
+            editor.setColour (juce::TextEditor::textColourId, OvenLookAndFeel::cream());
+            editor.setColour (juce::TextEditor::outlineColourId, juce::Colour (0xff2a2e33));
+            editor.setColour (juce::TextEditor::focusedOutlineColourId, OvenLookAndFeel::lime());
+            editor.setColour (juce::TextEditor::highlightColourId,
+                              OvenLookAndFeel::lime().withAlpha (0.25f));
+            addAndMakeVisible (editor);
+
+            auto setup = [this] (juce::TextButton& button, const juce::String& text)
+            {
+                button.setButtonText (text);
+                button.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff1a1f24));
+                button.setColour (juce::TextButton::textColourOffId, OvenLookAndFeel::lime());
+                addAndMakeVisible (button);
+            };
+
+            setup (smaller, "A-");
+            setup (bigger,  "A+");
+            setup (done,    "DONE");
+
+            smaller.onClick = [this] { zoom (-2.0f); };
+            bigger.onClick  = [this] { zoom (2.0f); };
+            done.onClick    = [this] { owner.commitAndHide(); };
+        }
+
+        void setText (const juce::String& text) { editor.setText (text, false); }
+        juce::String getText() const { return editor.getText(); }
+        void grabFocus() { editor.grabKeyboardFocus(); }
+
+        void paint (juce::Graphics& g) override { g.fillAll (juce::Colour (0xff0b0d10)); }
+
+        void resized() override
+        {
+            auto area = getLocalBounds().reduced (12);
+            auto bar = area.removeFromBottom (34);
+
+            done.setBounds (bar.removeFromRight (110).reduced (2));
+            bar.removeFromRight (10);
+            bigger.setBounds (bar.removeFromRight (56).reduced (2));
+            smaller.setBounds (bar.removeFromRight (56).reduced (2));
+
+            area.removeFromBottom (8);
+            editor.setBounds (area);
+        }
+
+    private:
+        void zoom (float delta)
+        {
+            fontSize = juce::jlimit (11.0f, 42.0f, fontSize + delta);
+            editor.setFont (juce::Font (juce::FontOptions (fontSize)));
+        }
+
+        AiBigEditor& owner;
+        juce::TextEditor editor;
+        juce::TextButton smaller, bigger, done;
+        float fontSize = 18.0f;
+    };
+
+    Body* bodyPtr = nullptr;
+    std::function<void (const juce::String&)> commit;
+};
+
 namespace
 {
     constexpr float kWidth  = 1148.0f;
@@ -190,7 +308,9 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
 
     //==========================================================================
     // Prompt
-    promptEditor = std::make_unique<juce::TextEditor> ("prompt");
+    promptEditor = std::make_unique<ExpandableEditor> ("prompt");
+    promptEditor->setTooltip ("Double-click for a larger, zoomable editor");
+    promptEditor->onExpand = [this] { openBigEditor (false); };
     promptEditor->setMultiLine (true, false);
     promptEditor->setReturnKeyStartsNewLine (true);
     promptEditor->setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff080a08));
@@ -204,7 +324,9 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
         "Describe the track, vocals, loops or drums you want...", lime.withAlpha (0.45f));
     addAndMakeVisible (*promptEditor);
 
-    lyricsEditor = std::make_unique<juce::TextEditor> ("lyrics");
+    lyricsEditor = std::make_unique<ExpandableEditor> ("lyrics");
+    lyricsEditor->setTooltip ("Double-click for a larger, zoomable editor");
+    lyricsEditor->onExpand = [this] { openBigEditor (true); };
     lyricsEditor->setMultiLine (false, false);
     lyricsEditor->setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff080a08));
     lyricsEditor->setColour (juce::TextEditor::textColourId, OvenLookAndFeel::cream());
@@ -421,6 +543,8 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
         regionDesigns.push_back ({ 18.0f, 338.0f, 430.0f, 16.0f });
         regionSliders.push_back (std::move (start));
 
+        regionSliders.back()->onValueChange = [this] { clampRegion (true); };
+
         auto end = std::make_unique<juce::Slider>();
         end->setSliderStyle (juce::Slider::LinearHorizontal);
         end->setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
@@ -433,6 +557,8 @@ AiPage::AiPage (BtPOvenAudioProcessor& p)
             processor.apvts, "c_end", *end));
         regionDesigns.push_back ({ 456.0f, 338.0f, 430.0f, 16.0f });
         regionSliders.push_back (std::move (end));
+
+        regionSliders.back()->onValueChange = [this] { clampRegion (false); };
     }
 
     //==========================================================================
@@ -770,6 +896,29 @@ void AiPage::applyMode (int mode)
 }
 
 //==============================================================================
+void AiPage::clampRegion (bool startMoved)
+{
+    auto* startParam = processor.apvts.getParameter ("c_start");
+    auto* endParam   = processor.apvts.getParameter ("c_end");
+
+    if (startParam == nullptr || endParam == nullptr)
+        return;
+
+    // Parameter values are normalised because the ranges are 0..1.
+    const float start = startParam->getValue();
+    const float end   = endParam->getValue();
+    const float minGap = 0.01f;   // at least 1% of the file
+
+    if (start <= end - minGap)
+        return;
+
+    if (startMoved)
+        endParam->setValueNotifyingHost (juce::jmin (1.0f, start + minGap));
+    else
+        startParam->setValueNotifyingHost (juce::jmax (0.0f, end - minGap));
+}
+
+//==============================================================================
 juce::String AiPage::languageCode() const
 {
     if (languageBox == nullptr)
@@ -894,6 +1043,34 @@ void AiPage::applyLora()
     processor.setStatusMessage (hasLora
                                     ? "LORA APPLIED - RELOADS ON NEXT RUN"
                                     : "LORA CLEARED");
+}
+
+void AiPage::openBigEditor (bool forLyrics)
+{
+    auto* source = forLyrics ? static_cast<juce::TextEditor*> (lyricsEditor.get())
+                             : static_cast<juce::TextEditor*> (promptEditor.get());
+
+    if (source == nullptr)
+        return;
+
+    if (bigEditor == nullptr)
+        bigEditor = std::make_unique<AiBigEditor>();
+
+    bigEditor->open (forLyrics ? "LYRICS" : "PROMPT", source->getText(),
+                     [this, forLyrics] (const juce::String& text)
+                     {
+                         if (forLyrics)
+                         {
+                             if (lyricsEditor != nullptr)
+                                 lyricsEditor->setText (text, false);
+                         }
+                         else if (promptEditor != nullptr)
+                         {
+                             promptEditor->setText (text, false);
+                         }
+
+                         saveState();
+                     });
 }
 
 void AiPage::openLoraTrainDialog()

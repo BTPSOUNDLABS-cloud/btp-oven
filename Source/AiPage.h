@@ -17,6 +17,24 @@
     The NUKED button on the header never touches this page's prompt, dataset
     or generator state.
 */
+class AiBigEditor;
+
+/** A TextEditor that can ask its owner for a bigger window on double-click. */
+struct ExpandableEditor : juce::TextEditor
+{
+    using juce::TextEditor::TextEditor;
+
+    std::function<void()> onExpand;
+
+    void mouseDoubleClick (const juce::MouseEvent& event) override
+    {
+        if (onExpand != nullptr)
+            onExpand();
+        else
+            juce::TextEditor::mouseDoubleClick (event);
+    }
+};
+
 class AiPage : public juce::Component,
                private juce::Timer,
                public juce::FileDragAndDropTarget
@@ -91,6 +109,7 @@ private:
     void addFilesToDataset();
     void openDatasetFolder();
     void openLoraTrainDialog();
+    void openBigEditor (bool forLyrics);
     void startLoraTraining();
 
     void paintPanel (juce::Graphics&, juce::Rectangle<float> design, const juce::String& title,
@@ -111,13 +130,17 @@ private:
     std::vector<std::unique_ptr<juce::Slider>> regionSliders;
     std::vector<juce::Rectangle<float>> regionDesigns;
 
-    std::unique_ptr<juce::TextEditor> promptEditor;
-    std::unique_ptr<juce::TextEditor> lyricsEditor;
+    std::unique_ptr<ExpandableEditor> promptEditor;
+    std::unique_ptr<ExpandableEditor> lyricsEditor;
+    std::unique_ptr<AiBigEditor> bigEditor;
     std::unique_ptr<juce::ComboBox> presetBox;
     std::unique_ptr<juce::ComboBox> languageBox;
     juce::String modePrefix;
 
     void applyMode (int mode);
+
+    /** Keeps Loop C's two region handles from crossing each other. */
+    void clampRegion (bool startMoved);
 
     // Working state survives close/reopen. In a DAW it lives in the APVTS tree,
     // so the host stores it with the project. Standalone has no host to ask, so

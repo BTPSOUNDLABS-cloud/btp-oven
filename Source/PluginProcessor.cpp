@@ -299,6 +299,26 @@ double BtPOvenAudioProcessor::activeLoopLengthSeconds() const
     }
 
     const double len = loops[(size_t) index].getLengthSeconds();
+
+    // Loop C carries a loop region. Everything that syncs to the loop (tempo,
+    // auto-fill, automation) must follow the region, not the whole file, or it
+    // runs at the wrong length while the audio loops correctly.
+    if (index == 2 && len > 0.05)
+    {
+        const auto* startParam = rawParams[(size_t) btp::P::CStart];
+        const auto* endParam   = rawParams[(size_t) btp::P::CEnd];
+
+        if (startParam != nullptr && endParam != nullptr)
+        {
+            const double a = (double) startParam->load() * len;
+            const double b = (double) endParam->load() * len;
+            const double span = std::abs (b - a);
+
+            if (span > 0.05)
+                return span;
+        }
+    }
+
     return len > 0.05 ? len : 0.0;
 }
 

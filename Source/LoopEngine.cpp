@@ -417,8 +417,13 @@ void LoopVoice::renderNext (const LoopBuffer& loop,
 
     //==========================================================================
     // Loop region (start / end / loop)
+    // A crossed selection (start past end) used to fall through to "the whole
+    // file", which reads as "my region does nothing". Treat it as a span.
     double regionStart = (double) len * juce::jlimit (0.0f, 1.0f, o.start);
     double regionEnd   = (double) len * juce::jlimit (0.0f, 1.0f, o.end);
+
+    if (regionEnd < regionStart)
+        std::swap (regionStart, regionEnd);
 
     if (regionEnd - regionStart < 32.0)
     {

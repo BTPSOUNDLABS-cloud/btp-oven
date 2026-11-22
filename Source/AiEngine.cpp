@@ -625,12 +625,16 @@ void AiEngine::doGenerate (const Job& job)
     req.shift           = job.shift;
     req.use_cot_caption = false;
 
+    // Language applies whenever the LM writes lyrics. Set it even if the user
+    // supplied lyrics: the words are sung as written, but the field still
+    // steers phrasing and vocal delivery.
+    req.vocal_language = job.language.toStdString();
+
     // Vocals: enrich the request (lyrics + vocal audio codes) via the 4B LM.
     if (job.withVocals && ! caption.empty())
     {
         if (ensureLm())
         {
-            req.vocal_language = job.language.toStdString();
             setState (State::Generating, "WRITING LYRICS + VOCALS: " + job.prompt.substring (0, 40));
 
             const int lmRc = ace_lm_generate (static_cast<AceLm*> (lmCtx), &req, 1, &req,
