@@ -898,10 +898,12 @@ void BtPOvenAudioProcessor::pollAiEngine()
             ? "  /  " + aiResultLyrics.replace ("\n", " ").substring (0, 40)
             : juce::String();
 
-        setStatusMessage ("AI TAKE LANDED IN LOOP C" + lyricHint);
+        setStatusMessage ("AI TAKE LANDED IN LOOP C  /  SEED "
+                          + juce::String (aiResultSeed) + lyricHint);
     }
     else
-        setStatusMessage ("AI TAKE READY - SEND TO A / B / C");
+        setStatusMessage ("AI TAKE READY  /  SEED " + juce::String (aiResultSeed)
+                          + " - SEND TO A / B / C");
 }
 
 bool BtPOvenAudioProcessor::sendOneShotToLoop (int loopIndex)

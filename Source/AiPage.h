@@ -172,9 +172,6 @@ private:
 
     void saveState();
     void applyUi (const SavedUi&);
-    static juce::File uiStateFile();
-    bool readStandaloneState (SavedUi& out) const;
-    void writeStandaloneState (const SavedUi&) const;
 
     SavedUi snapshot() const;
     SavedUi lastSaved;

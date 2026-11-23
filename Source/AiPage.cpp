@@ -2081,72 +2081,10 @@ void AiPage::saveState()
     tree.setProperty ("ai_auto_lyrics", now.autoLyrics, nullptr);
     tree.setProperty ("ai_midi", now.midi, nullptr);
 
-    // A DAW hands this back with the project. The standalone app has no host,
-    // and JUCE does not reliably write its settings on exit, so keep our own
-    // copy as well. It is a few hundred bytes and only written on change.
-    writeStandaloneState (now);
-
+    // The project's state is the only source. There is deliberately no
+    // last-session file: a new project must start from defaults, not inherit
+    // whatever was on screen yesterday.
     lastSaved = now;
-}
-
-juce::File AiPage::uiStateFile()
-{
-    return btpai::getConfigDir().getChildFile ("ui_state.json");
-}
-
-void AiPage::writeStandaloneState (const SavedUi& ui) const
-{
-    auto* obj = new juce::DynamicObject();
-
-    obj->setProperty ("prompt",   ui.prompt);
-    obj->setProperty ("lyrics",   ui.lyrics);
-    obj->setProperty ("language", ui.language);
-    obj->setProperty ("mode",     ui.mode);
-    obj->setProperty ("duration", ui.duration);
-    obj->setProperty ("steps",    ui.steps);
-    obj->setProperty ("guidance", ui.guidance);
-    obj->setProperty ("bpm",      ui.bpm);
-    obj->setProperty ("seed",     ui.seed);
-    obj->setProperty ("vocals",   ui.vocals);
-    obj->setProperty ("autoLyrics", ui.autoLyrics);
-    obj->setProperty ("midi", ui.midi);
-
-    const auto file = uiStateFile();
-    file.getParentDirectory().createDirectory();
-    file.replaceWithText (juce::JSON::toString (juce::var (obj), false));
-}
-
-bool AiPage::readStandaloneState (SavedUi& out) const
-{
-    const auto file = uiStateFile();
-    if (! file.existsAsFile())
-        return false;
-
-    const auto parsed = juce::JSON::parse (file.loadFileAsString());
-    auto* obj = parsed.getDynamicObject();
-    if (obj == nullptr)
-        return false;
-
-    auto number = [obj] (const char* key, double fallback)
-    {
-        const auto value = obj->getProperty (key);
-        return value.isVoid() ? fallback : (double) value;
-    };
-
-    out.prompt   = obj->getProperty ("prompt").toString();
-    out.lyrics   = obj->getProperty ("lyrics").toString();
-    out.language = obj->getProperty ("language").toString();
-    out.mode     = obj->getProperty ("mode").toString();
-    out.vocals   = (bool) obj->getProperty ("vocals");
-    out.autoLyrics = (bool) obj->getProperty ("autoLyrics");
-    out.midi = (bool) obj->getProperty ("midi");
-    out.duration = number ("duration", -1.0);
-    out.steps    = number ("steps",    -1.0);
-    out.guidance = number ("guidance", -1.0);
-    out.bpm      = number ("bpm",      -1.0);
-    out.seed     = number ("seed",     -2.0);
-    out.valid    = true;
-    return true;
 }
 
 void AiPage::applyUi (const SavedUi& ui)
@@ -2221,10 +2159,10 @@ void AiPage::restoreState()
         ui.seed     = (double) tree.getProperty ("ai_seed",     -2.0);
         ui.valid    = true;
     }
-    else if (! readStandaloneState (ui))
+    else
     {
-        // Nothing stored anywhere: first run. Leave the defaults alone, and
-        // leave lastSaved invalid so the next tick writes them out once.
+        // Nothing stored in this project: first run. Leave the defaults alone,
+        // and leave lastSaved invalid so the next tick writes them out once.
         lastSaved = SavedUi();
         return;
     }
@@ -2287,15 +2225,9 @@ void AiPage::timerCallback()
 
     const bool busy = engine.isBusy();
 
-    // A random take resolves to a concrete seed. Show it, so the run becomes
-    // reproducible and the deterministic cache can serve a repeat instantly.
-    const auto resolvedSeed = processor.getAiResultSeed();
-    if (seedSlider != nullptr && ! busy && resolvedSeed > 0
-        && (juce::int64) std::llround (seedSlider->getValue()) < 0)
-    {
-        seedSlider->setValue ((double) resolvedSeed, juce::dontSendNotification);
-    }
-
+    // The resolved seed is reported in the status bar, never written back into
+    // the SEED knob. Writing it back pinned every later Generate to that exact
+    // take, so the cache served the same audio forever.
     if (generateButton != nullptr)
     {
         generateButton->setEnabled (! busy);
