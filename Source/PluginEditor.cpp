@@ -1321,5 +1321,14 @@ void BtPOvenAudioProcessorEditor::capturePages (const juce::File& folder)
     showOnly (false, false, false, true);
     shot ("page-ai");
 
+    // Rack FX page (rackPageVisible is not part of showOnly).
+    chainVocalVisible = chainMasterVisible = rackChainVisible = false;
+    aiPageVisible = false;
+    rackPageVisible = true;
+    setMainPageVisible (false);
+    resized();
+    shot ("page-rack");
+    rackPageVisible = false;
+
     showOnly (false, false, false, false);
 }

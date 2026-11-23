@@ -62,10 +62,14 @@ private:
     std::unique_ptr<juce::ComboBox> routeBox;
     std::unique_ptr<juce::ComboBox> keyBox;
     std::unique_ptr<juce::ComboBox> scaleBox;
+    std::unique_ptr<juce::ComboBox> panDivBox;
+    std::unique_ptr<juce::ComboBox> panFlipBox;
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> routeAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> keyAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> panDivAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> panFlipAttachment;
 
     juce::Rectangle<float> flowArea;
     juce::Rectangle<float> keyboardArea;

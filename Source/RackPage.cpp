@@ -1,4 +1,4 @@
-#include "RackPage.h"
+﻿#include "RackPage.h"
 
 #include "OvenLookAndFeel.h"
 
@@ -56,6 +56,31 @@ RackPage::RackPage (BtPOvenAudioProcessor& p)
     addKnob ("dist_mix",   "MIX",   { 150.0f, 388.0f, 68.0f, 84.0f });
     addKnob ("crush_bits", "BITS",  { 220.0f, 388.0f, 68.0f, 84.0f });
     addKnob ("crush_mix",  "MIX",   { 290.0f, 388.0f, 68.0f, 84.0f });
+
+    //==========================================================================
+    // Movement: ADSR envelope per bar + tempo-synced auto-pan.
+    addToggle ("move_env_on", "ENV", { 10.0f, 490.0f, 64.0f, 20.0f });
+    addToggle ("move_pan_on", "PAN", { 80.0f, 490.0f, 64.0f, 20.0f });
+
+    addKnob ("move_attack",     "A", { 10.0f, 516.0f, 50.0f, 64.0f });
+    addKnob ("move_decay",      "D", { 62.0f, 516.0f, 50.0f, 64.0f });
+    addKnob ("move_sustain",    "S", { 114.0f, 516.0f, 50.0f, 64.0f });
+    addKnob ("move_release",    "R", { 166.0f, 516.0f, 50.0f, 64.0f });
+    addKnob ("move_pan_amount", "AMT", { 218.0f, 516.0f, 50.0f, 64.0f });
+
+    panDivBox = std::make_unique<juce::ComboBox>();
+    panDivBox->addItemList ({ "1/8", "1/4", "1/2" }, 1);
+    styleCombo (*panDivBox);
+    addAndMakeVisible (*panDivBox);
+    panDivAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        processor.apvts, "move_pan_div", *panDivBox);
+
+    panFlipBox = std::make_unique<juce::ComboBox>();
+    panFlipBox->addItemList ({ "FLIP 1 BAR", "FLIP 2 BARS", "FLIP 3 BARS", "FLIP 4 BARS" }, 1);
+    styleCombo (*panFlipBox);
+    addAndMakeVisible (*panFlipBox);
+    panFlipAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+        processor.apvts, "move_pan_flip", *panFlipBox);
 
     //==========================================================================
     // Chorus + flanger
@@ -289,6 +314,12 @@ void RackPage::resized()
     if (scaleBox != nullptr)
         scaleBox->setBounds (R (888.0f, 342.0f, 130.0f, 28.0f));
 
+    if (panDivBox != nullptr)
+        panDivBox->setBounds (R (278.0f, 516.0f, 78.0f, 22.0f));
+
+    if (panFlipBox != nullptr)
+        panFlipBox->setBounds (R (278.0f, 546.0f, 78.0f, 22.0f));
+
     flowArea = R (770.0f, 188.0f, 362.0f, 100.0f).toFloat();
     keyboardArea = R (770.0f, 486.0f, 362.0f, 116.0f).toFloat();
     echoArea = R (14.0f, 166.0f, 344.0f, 116.0f).toFloat();
@@ -329,6 +360,13 @@ void RackPage::paint (juce::Graphics& g)
     paintPanel (g, pDelay, "PING-PONG DELAY", "FEEDBACK TAP - PING PONG CROSS-FEEDS L / R");
     paintPanel (g, pMod,   "CHORUS + FLANGER", "SHARED MOD DELAY LINE");
     paintPanel (g, pDist,  "DISTORTION + BITCRUSH", "SOFT CLIP -> TONE LP   /   QUANTISE + SAMPLE HOLD");
+
+    // Movement sub-section, inside the distortion panel's remaining space.
+    g.setColour (lime.withAlpha (0.75f));
+    g.setFont (juce::Font (juce::FontOptions (juce::jmax (7.5f, 9.5f * sc), juce::Font::bold)));
+    g.drawText ("MOVEMENT",
+                R (10.0f, 474.0f, 352.0f, 14.0f), juce::Justification::centredLeft, false);
+
     paintPanel (g, pVerb,  "PHASER + RACK VERB", "FOUR-STAGE ALL-PASS / ROOM");
     paintPanel (g, pRoute, "ROUTING", "SERIES = INSERT   /   PARALLEL = DRY + WET");
     paintPanel (g, pKey,   "KEY + SCALE + AUTOTUNE", "SNAPS THE MELODY TO THE SELECTED KEY / SCALE");

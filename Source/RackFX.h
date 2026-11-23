@@ -48,6 +48,12 @@ private:
 
     float distLpL = 0.0f, distLpR = 0.0f;
 
+    // Movement clocks
+    double moveBarPhase = 0.0;
+    double moveFlipPhase = 0.0;
+    double movePanPhase = 0.0;
+    int    movePanDirection = 1;
+
     juce::Reverb reverb;
     bool reverbReady = false;
 

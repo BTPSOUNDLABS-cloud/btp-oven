@@ -40,6 +40,10 @@ enum class P : int
     PhaserOn, PhaserRate, PhaserDepth, PhaserMix,
     RackVerbOn, RackVerbSize, RackVerbMix,
 
+    // Movement: envelope + auto-pan ------------------------------------------
+    MoveEnvOn, MoveAttack, MoveDecay, MoveSustain, MoveRelease,
+    MovePanOn, MovePanAmount, MovePanDiv, MovePanFlip,
+
     // Key / scale -----------------------------------------------------------
     KeyRoot, ScaleType, KeyLock,
 
@@ -84,6 +88,9 @@ inline constexpr const char* kParamKeys[] =
     "flanger_on", "flanger_rate", "flanger_depth", "flanger_feedback", "flanger_mix",
     "phaser_on", "phaser_rate", "phaser_depth", "phaser_mix",
     "rack_verb_on", "rack_verb_size", "rack_verb_mix",
+
+    "move_env_on", "move_attack", "move_decay", "move_sustain", "move_release",
+    "move_pan_on", "move_pan_amount", "move_pan_div", "move_pan_flip",
 
     "key_root", "scale_type", "key_lock",
 
@@ -219,6 +226,17 @@ struct Values
     bool  rackVerbOn    = false;
     float rackVerbSize  = 0.6f;
     float rackVerbMix   = 0.25f;
+
+    // Movement ---------------------------------------------------------------
+    bool  moveEnvOn     = false;
+    float moveAttack    = 0.01f;   // seconds
+    float moveDecay     = 0.20f;
+    float moveSustain   = 1.0f;
+    float moveRelease   = 0.30f;
+    bool  movePanOn     = false;
+    float movePanAmount = 0.5f;
+    int   movePanDiv    = 1;       // 0 = 1/8, 1 = 1/4, 2 = 1/2
+    int   movePanFlip   = 1;       // bars per direction change
 
     int   keyRoot       = 0;      // 0 = C
     int   scaleType     = 0;      // 0 = major, 1 = minor

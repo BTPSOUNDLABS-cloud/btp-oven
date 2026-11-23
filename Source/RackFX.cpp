@@ -3,6 +3,28 @@
 namespace btp
 {
 
+namespace
+{
+    /** ADSR shape for one bar, evaluated analytically: no state, no drift. */
+    float envelopeAt (double t, double gateEnd, double attack, double decay,
+                      double sustain, double release) noexcept
+    {
+        if (attack > 1.0e-6 && t < attack)
+            return (float) (t / attack);
+
+        if (decay > 1.0e-6 && t < attack + decay)
+            return (float) (1.0 - (1.0 - sustain) * ((t - attack) / decay));
+
+        if (t < gateEnd)
+            return (float) sustain;
+
+        if (release > 1.0e-6)
+            return (float) juce::jmax (0.0, sustain * (1.0 - (t - gateEnd) / release));
+
+        return 0.0f;
+    }
+}
+
 void RackFX::prepare (double sampleRate)
 {
     reset();
@@ -33,6 +55,11 @@ void RackFX::reset()
     chorusPhase = 0.0;
     flangerPhase = 0.0;
     phaserPhase = 0.0;
+
+    moveBarPhase = 0.0;
+    moveFlipPhase = 0.0;
+    movePanPhase = 0.0;
+    movePanDirection = 1;
 
     for (int i = 0; i < 4; ++i)
         phaserL[i] = phaserR[i] = 0.0f;
@@ -87,7 +114,9 @@ void RackFX::processBlock (juce::AudioBuffer<float>& buffer, const Values& v, do
     const bool anyFx = v.distOn || v.crushOn || v.chorusOn || v.flangerOn
                     || v.phaserOn || v.delayOn || v.rackVerbOn;
 
-    if (! anyFx)
+    const bool anyMove = v.moveEnvOn || v.movePanOn;
+
+    if (! anyFx && ! anyMove)
         return;
 
     if (dryBuffer.getNumSamples() < numSamples || dryBuffer.getNumChannels() < 2)
@@ -402,6 +431,71 @@ void RackFX::processBlock (juce::AudioBuffer<float>& buffer, const Values& v, do
 
             if (right != nullptr)
                 right[i] = juce::jlimit (-4.0f, 4.0f, dryR[i] * (1.0f - rackMix) + right[i] * rackMix);
+        }
+    }
+
+    //==========================================================================
+    // Movement: envelope + auto-pan, applied last so it shapes whatever the
+    // rack produced. Tempo comes from the host when SYNC is on.
+    if (v.moveEnvOn || v.movePanOn)
+    {
+        const float bpm = juce::jlimit (40.0f, 240.0f, v.bpm);
+        const double beatsPerSecond = (double) bpm / 60.0;
+        const double beatsPerSample = beatsPerSecond / sampleRate;
+
+        const double divBeats = v.movePanDiv == 0 ? 0.5
+                              : (v.movePanDiv == 1 ? 1.0 : 2.0);
+        const double flipBeats = (double) juce::jlimit (1, 4, v.movePanFlip + 1) * 4.0;
+        const double barSeconds = 4.0 / beatsPerSecond;
+
+        const double attack  = juce::jmax (0.0, (double) v.moveAttack);
+        const double decay   = juce::jmax (0.0, (double) v.moveDecay);
+        const double release = juce::jmax (0.0, (double) v.moveRelease);
+        const double sustain = juce::jlimit (0.0, 1.0, (double) v.moveSustain);
+        const double gateEnd = juce::jmax (attack + decay, barSeconds * 0.9);
+
+        const float sqrt2 = juce::MathConstants<float>::sqrt2;
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            moveBarPhase += beatsPerSample;
+
+            if (moveBarPhase >= 4.0)
+                moveBarPhase -= 4.0;
+
+            moveFlipPhase += beatsPerSample;
+
+            if (moveFlipPhase >= flipBeats)
+            {
+                moveFlipPhase -= flipBeats;
+                movePanDirection = -movePanDirection;
+            }
+
+            movePanPhase += beatsPerSample / divBeats * (double) movePanDirection;
+
+            while (movePanPhase >= 1.0) movePanPhase -= 1.0;
+            while (movePanPhase < 0.0)  movePanPhase += 1.0;
+
+            float gain = 1.0f;
+
+            if (v.moveEnvOn)
+                gain = envelopeAt (moveBarPhase / beatsPerSecond, gateEnd,
+                                   attack, decay, sustain, release);
+
+            float pan = 0.0f;
+
+            if (v.movePanOn)
+                pan = v.movePanAmount
+                      * (float) std::sin (movePanPhase * juce::MathConstants<double>::twoPi);
+
+            const float angle = (pan + 1.0f) * 0.25f * juce::MathConstants<float>::pi;
+            const float gainL = juce::jmin (1.0f, std::cos (angle) * sqrt2);
+            const float gainR = juce::jmin (1.0f, std::sin (angle) * sqrt2);
+
+            left[i] *= gain * gainL;
+
+            if (right != nullptr)
+                right[i] *= gain * gainR;
         }
     }
 

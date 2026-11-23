@@ -255,6 +255,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout BtPOvenAudioProcessor::creat
     addFloat (layout, P::RackVerbSize, "Rack Reverb Size", 0.0f, 1.0f, 0.6f, 0.0f, 2);
     addFloat (layout, P::RackVerbMix, "Rack Reverb Mix", 0.0f, 1.0f, 0.25f, 0.0f, 2);
 
+    // Movement ---------------------------------------------------------------
+    addBool  (layout, P::MoveEnvOn, "Movement Envelope On", false);
+    addFloat (layout, P::MoveAttack, "Movement Attack", 0.0f, 500.0f, 10.0f, 0.0f, 0, "ms");
+    addFloat (layout, P::MoveDecay, "Movement Decay", 0.0f, 1000.0f, 200.0f, 0.0f, 0, "ms");
+    addFloat (layout, P::MoveSustain, "Movement Sustain", 0.0f, 1.0f, 1.0f, 0.0f, 2);
+    addFloat (layout, P::MoveRelease, "Movement Release", 0.0f, 2000.0f, 300.0f, 0.0f, 0, "ms");
+    addBool  (layout, P::MovePanOn, "Movement Pan On", false);
+    addFloat (layout, P::MovePanAmount, "Movement Pan Amount", 0.0f, 1.0f, 0.5f, 0.0f, 2);
+    addChoice (layout, P::MovePanDiv, "Movement Pan Division",
+               juce::StringArray { "1/8", "1/4", "1/2" }, 1);
+    addChoice (layout, P::MovePanFlip, "Movement Pan Flip",
+               juce::StringArray { "1 bar", "2 bars", "3 bars", "4 bars" }, 0);
+
     // Key / scale -----------------------------------------------------------
     addChoice (layout, P::KeyRoot, "Key Root",
                juce::StringArray { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 0);
@@ -531,6 +544,18 @@ btp::Values BtPOvenAudioProcessor::readValues() const
     v.autoTuneSpeed = load (P::AutoTuneSpeed);
     v.autoTuneMix   = load (P::AutoTuneMix);
     v.autoTuneSnap  = load (P::AutoTuneSnap);
+
+    // Movement. Parameters are in milliseconds for readability; the DSP works
+    // in seconds.
+    v.moveEnvOn     = load (P::MoveEnvOn) > 0.5f;
+    v.moveAttack    = load (P::MoveAttack) * 0.001f;
+    v.moveDecay     = load (P::MoveDecay) * 0.001f;
+    v.moveSustain   = load (P::MoveSustain);
+    v.moveRelease   = load (P::MoveRelease) * 0.001f;
+    v.movePanOn     = load (P::MovePanOn) > 0.5f;
+    v.movePanAmount = load (P::MovePanAmount);
+    v.movePanDiv    = juce::jlimit (0, 2, (int) std::lround (load (P::MovePanDiv)));
+    v.movePanFlip   = juce::jlimit (0, 3, (int) std::lround (load (P::MovePanFlip)));
 
     return v;
 }
