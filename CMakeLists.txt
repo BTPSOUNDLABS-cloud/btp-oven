@@ -40,6 +40,8 @@ juce_add_plugin(BtPOven
 
 target_sources(BtPOven PRIVATE
     Source/Params.h
+    Source/OnnxBootstrap.h
+    Source/OnnxBootstrap.cpp
     Source/AiEngine.h
     Source/AiEngine.cpp
     Source/AiPage.h
@@ -251,6 +253,16 @@ if(BTP_ENABLE_RVC AND EXISTS "${ONNX_DIR}/include/onnxruntime_cxx_api.h")
     target_include_directories(BtPOven PRIVATE "${ONNX_DIR}/include")
     target_link_libraries(BtPOven PRIVATE "${ONNX_DIR}/lib/onnxruntime.lib")
     target_compile_definitions(BtPOven PRIVATE BTP_HAS_RVC=1)
+
+    # Bind ONNX to the copy beside the plugin, not whatever the host process
+    # finds first. System32 ships an older runtime; the C++ wrapper asks for a
+    # newer API version and crashes on the first Ort::Env. See OnnxBootstrap.
+    if(MSVC)
+        # BtPOven is the shared-code library; the binaries are BtPOven_VST3 and
+        # BtPOven_Standalone. INTERFACE propagates the flag to both.
+        target_link_options(BtPOven INTERFACE "/DELAYLOAD:onnxruntime.dll")
+        target_link_libraries(BtPOven INTERFACE delayimp)
+    endif()
 
     if(BTP_ENABLE_RAVE)
         target_compile_definitions(BtPOven PRIVATE BTP_HAS_RAVE=1)
